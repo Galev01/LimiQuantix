@@ -29,9 +29,9 @@ import {
 } from 'lucide-react';
 import { Header } from '@/components/layout';
 import { Card, Badge, Button } from '@/components/ui';
-import { ProgressRing } from '@/components/ui/ProgressRing';
 import { useVM, useVMPowerOps, useVMSnapshots, useVMSnapshotOps, useDeleteVM, useVMConsole } from '@/hooks/useVMs';
-import { formatBytes, formatPercent, cn } from '@/lib/utils';
+import { useHostInfo } from '@/hooks/useHost';
+import { formatBytes, cn } from '@/lib/utils';
 import { launchQvMC } from '@/lib/qvmc';
 import { toast } from '@/lib/toast';
 import { useAppStore } from '@/stores/useAppStore';
@@ -49,6 +49,7 @@ export function VMDetail() {
   const { data: vm, isLoading, refetch, isFetching } = useVM(vmId || '');
   const { data: snapshots, isLoading: isLoadingSnapshots } = useVMSnapshots(vmId || '');
   const { data: consoleInfo } = useVMConsole(vmId || '');
+  const { data: hostInfo } = useHostInfo();
   const powerOps = useVMPowerOps();
   const snapshotOps = useVMSnapshotOps(vmId || '');
   const deleteVm = useDeleteVM();
@@ -150,10 +151,24 @@ export function VMDetail() {
     );
   }
 
-  const cpuPercent = vm.cpuUsagePercent || 0;
-  const memoryPercent = vm.memoryTotalBytes > 0 
-    ? Math.round((vm.memoryUsedBytes / vm.memoryTotalBytes) * 100) 
-    : 0;
+  // Calculate vCPU count from memory (rough estimate: 1 vCPU per 2GB, min 1)
+  // This is a fallback - ideally we'd get this from VM config
+  const estimatedVcpus = Math.max(1, Math.round(vm.memoryTotalBytes / (2 * 1024 * 1024 * 1024)));
+  
+  // Get guest agent resource usage if available
+  const guestUsage = vm.guestAgent?.resourceUsage;
+  
+  // Format uptime from seconds to human readable
+  const formatUptime = (seconds: number): string => {
+    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    if (hours < 24) return `${hours}h ${mins}m`;
+    const days = Math.floor(hours / 24);
+    const remainingHours = hours % 24;
+    return `${days}d ${remainingHours}h`;
+  };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -271,34 +286,54 @@ export function VMDetail() {
                 <h3 className="text-lg font-semibold text-text-primary mb-4">General Information</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <InfoRow label="Name" value={vm.name} />
-                  <InfoRow label="VM ID" value={vm.vmId} mono />
-                  <InfoRow label="State" value={vm.state} />
-                  <InfoRow label="Started At" value={vm.startedAt ? new Date(vm.startedAt).toLocaleString() : '—'} />
+                  <InfoRow label="Description" value="—" />
+                  <InfoRow label="Host" value={hostInfo?.hostname || 'This Host'} />
+                  <InfoRow label="Guest OS" value={vm.guestAgent?.osName || 'Linux'} />
+                  <InfoRow label="Hostname" value={vm.guestAgent?.hostname || vm.name} />
+                  <InfoRow label="Agent Version" value={vm.guestAgent?.version || '—'} />
+                  <InfoRow 
+                    label="Uptime" 
+                    value={guestUsage?.uptimeSeconds ? formatUptime(guestUsage.uptimeSeconds) : '—'} 
+                  />
+                  <InfoRow 
+                    label="IP Addresses" 
+                    value={vm.guestAgent?.ipAddresses?.join(', ') || '—'} 
+                    mono 
+                  />
                 </div>
               </Card>
 
               {/* Hardware Summary */}
               <Card>
                 <h3 className="text-lg font-semibold text-text-primary mb-4">Hardware Summary</h3>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <HardwareCard
                     icon={<Cpu className="w-5 h-5" />}
                     label="CPU"
-                    value={`${formatPercent(cpuPercent)} used`}
+                    value={`${estimatedVcpus} vCPUs`}
+                    subvalue="1 socket(s)"
                     color="accent"
                   />
                   <HardwareCard
                     icon={<MemoryStick className="w-5 h-5" />}
                     label="Memory"
                     value={formatBytes(vm.memoryTotalBytes)}
-                    subvalue={`${formatPercent(memoryPercent)} used`}
+                    subvalue={guestUsage ? `${Math.round((guestUsage.memoryUsedBytes / guestUsage.memoryTotalBytes) * 100)}% used` : undefined}
                     color="info"
                   />
                   <HardwareCard
                     icon={<HardDrive className="w-5 h-5" />}
                     label="Storage"
-                    value={vm.guestAgent ? '1 disk(s)' : 'Unknown'}
+                    value={vm.disks?.length ? `${vm.disks.reduce((acc, d) => acc + d.sizeGib, 0)} GB` : '—'}
+                    subvalue={vm.disks?.length ? `${vm.disks.length} disk(s)` : undefined}
                     color="warning"
+                  />
+                  <HardwareCard
+                    icon={<Network className="w-5 h-5" />}
+                    label="Network"
+                    value="1 NIC(s)"
+                    subvalue={vm.guestAgent?.ipAddresses?.[0] || '—'}
+                    color="info"
                   />
                 </div>
               </Card>
@@ -310,7 +345,7 @@ export function VMDetail() {
                   <div className="grid grid-cols-2 gap-4">
                     <InfoRow label="Status" value="Connected" valueClass="text-success" />
                     <InfoRow label="Version" value={vm.guestAgent.version} />
-                    <InfoRow label="Operating System" value={vm.guestAgent.osName} />
+                    <InfoRow label="Operating System" value={`${vm.guestAgent.osName} ${vm.guestAgent.osVersion || ''}`} />
                     <InfoRow label="Kernel" value={vm.guestAgent.kernelVersion} mono />
                     <InfoRow label="Hostname" value={vm.guestAgent.hostname} />
                     <InfoRow 
@@ -329,38 +364,80 @@ export function VMDetail() {
               </Card>
             </div>
 
-            {/* Right Column - Resource Usage */}
+            {/* Right Column - Quick Stats */}
             <div className="space-y-6">
-              {/* CPU Usage */}
+              {/* Resource Allocation */}
               <Card>
-                <h3 className="text-sm font-medium text-text-muted mb-4">CPU Usage</h3>
-                <div className="flex items-center justify-center">
-                  <ProgressRing
-                    value={cpuPercent}
-                    size={120}
-                    color={cpuPercent >= 80 ? 'error' : cpuPercent >= 60 ? 'warning' : 'accent'}
-                    label={`${cpuPercent}%`}
-                    sublabel="usage"
+                <h3 className="text-sm font-medium text-text-muted mb-4">Resource Allocation</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-bg-base rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Cpu className="w-5 h-5 text-accent" />
+                      <span className="text-text-secondary">CPU</span>
+                    </div>
+                    <span className="text-lg font-semibold text-text-primary">{estimatedVcpus} vCPUs</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-bg-base rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <MemoryStick className="w-5 h-5 text-info" />
+                      <span className="text-text-secondary">Memory</span>
+                    </div>
+                    <span className="text-lg font-semibold text-text-primary">{formatBytes(vm.memoryTotalBytes)}</span>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Quick Stats */}
+              <Card>
+                <h3 className="text-sm font-medium text-text-muted mb-4">Quick Stats</h3>
+                <div className="space-y-3">
+                  <QuickStatRow 
+                    label="Host" 
+                    value={hostInfo?.hostname || 'This Host'} 
+                  />
+                  <QuickStatRow 
+                    label="Disk IOPS" 
+                    value="—" 
+                  />
+                  <QuickStatRow 
+                    label="Network RX" 
+                    value="—" 
+                  />
+                  <QuickStatRow 
+                    label="Network TX" 
+                    value="—" 
+                  />
+                  <QuickStatRow 
+                    label="Uptime" 
+                    value={guestUsage?.uptimeSeconds ? formatUptime(guestUsage.uptimeSeconds) : '—'} 
                   />
                 </div>
               </Card>
 
-              {/* Memory Usage */}
-              <Card>
-                <h3 className="text-sm font-medium text-text-muted mb-4">Memory Usage</h3>
-                <div className="flex items-center justify-center">
-                  <ProgressRing
-                    value={memoryPercent}
-                    size={120}
-                    color={memoryPercent >= 80 ? 'error' : memoryPercent >= 60 ? 'warning' : 'info'}
-                    label={`${memoryPercent}%`}
-                    sublabel="usage"
-                  />
-                </div>
-                <div className="mt-4 text-center text-sm text-text-muted">
-                  {formatBytes(vm.memoryUsedBytes)} / {formatBytes(vm.memoryTotalBytes)}
-                </div>
-              </Card>
+              {/* Guest Resource Usage (if agent connected) */}
+              {guestUsage && (
+                <Card>
+                  <h3 className="text-sm font-medium text-text-muted mb-4">Guest Usage</h3>
+                  <div className="space-y-3">
+                    <QuickStatRow 
+                      label="CPU Usage" 
+                      value={`${Math.round(guestUsage.cpuUsagePercent)}%`} 
+                    />
+                    <QuickStatRow 
+                      label="Memory Used" 
+                      value={formatBytes(guestUsage.memoryUsedBytes)} 
+                    />
+                    <QuickStatRow 
+                      label="Processes" 
+                      value={String(guestUsage.processCount)} 
+                    />
+                    <QuickStatRow 
+                      label="Load Avg" 
+                      value={`${guestUsage.loadAvg1.toFixed(2)} / ${guestUsage.loadAvg5.toFixed(2)} / ${guestUsage.loadAvg15.toFixed(2)}`} 
+                    />
+                  </div>
+                </Card>
+              )}
             </div>
           </div>
         )}
@@ -506,9 +583,9 @@ export function VMDetail() {
                     <span className="text-text-secondary">CPU</span>
                   </div>
                   <div className="text-2xl font-bold text-text-primary">
-                    {formatPercent(cpuPercent)}
+                    {estimatedVcpus} vCPUs
                   </div>
-                  <div className="text-sm text-text-muted mt-1">current usage</div>
+                  <div className="text-sm text-text-muted mt-1">1 socket(s)</div>
                 </div>
                 <div className="p-4 bg-bg-base rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
@@ -519,7 +596,7 @@ export function VMDetail() {
                     {formatBytes(vm.memoryTotalBytes)}
                   </div>
                   <div className="text-sm text-text-muted mt-1">
-                    {formatBytes(vm.memoryUsedBytes)} used
+                    {guestUsage ? `${Math.round((guestUsage.memoryUsedBytes / guestUsage.memoryTotalBytes) * 100)}% used` : 'allocated'}
                   </div>
                 </div>
                 <div className="p-4 bg-bg-base rounded-lg">
@@ -528,23 +605,23 @@ export function VMDetail() {
                     <span className="text-text-secondary">Storage</span>
                   </div>
                   <div className="text-2xl font-bold text-text-primary">
-                    {vm.guestAgent ? '1' : 'N/A'}
+                    {vm.disks?.length ? `${vm.disks.reduce((acc, d) => acc + d.sizeGib, 0)} GB` : '—'}
                   </div>
-                  <div className="text-sm text-text-muted mt-1">disk(s) attached</div>
+                  <div className="text-sm text-text-muted mt-1">{vm.disks?.length || 0} disk(s) attached</div>
                 </div>
               </div>
             </Card>
 
-            {vm.guestAgent?.resourceUsage && (
+            {guestUsage && (
               <Card>
                 <h3 className="text-lg font-semibold text-text-primary mb-4">Guest Resource Usage</h3>
                 <div className="grid gap-4 md:grid-cols-2">
-                  <InfoRow label="CPU Usage" value={formatPercent(vm.guestAgent.resourceUsage.cpuUsagePercent)} />
-                  <InfoRow label="Memory Used" value={formatBytes(vm.guestAgent.resourceUsage.memoryUsedBytes)} />
-                  <InfoRow label="Memory Total" value={formatBytes(vm.guestAgent.resourceUsage.memoryTotalBytes)} />
-                  <InfoRow label="Process Count" value={String(vm.guestAgent.resourceUsage.processCount)} />
-                  <InfoRow label="Load Avg (1m)" value={vm.guestAgent.resourceUsage.loadAvg1.toFixed(2)} />
-                  <InfoRow label="Uptime" value={`${Math.floor(vm.guestAgent.resourceUsage.uptimeSeconds / 3600)}h ${Math.floor((vm.guestAgent.resourceUsage.uptimeSeconds % 3600) / 60)}m`} />
+                  <InfoRow label="CPU Usage" value={`${Math.round(guestUsage.cpuUsagePercent)}%`} />
+                  <InfoRow label="Memory Used" value={formatBytes(guestUsage.memoryUsedBytes)} />
+                  <InfoRow label="Memory Total" value={formatBytes(guestUsage.memoryTotalBytes)} />
+                  <InfoRow label="Process Count" value={String(guestUsage.processCount)} />
+                  <InfoRow label="Load Avg (1m)" value={guestUsage.loadAvg1.toFixed(2)} />
+                  <InfoRow label="Uptime" value={formatUptime(guestUsage.uptimeSeconds)} />
                 </div>
               </Card>
             )}
@@ -837,6 +914,15 @@ function ConfigRow({ label, value }: { label: string; value: string }) {
     <div className="flex justify-between py-2 border-b border-border last:border-0">
       <span className="text-sm text-text-muted">{label}</span>
       <span className="text-sm text-text-primary font-mono">{value}</span>
+    </div>
+  );
+}
+
+function QuickStatRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between items-center py-2 border-b border-border/50 last:border-0">
+      <span className="text-sm text-text-muted">{label}</span>
+      <span className="text-sm font-medium text-text-primary">{value}</span>
     </div>
   );
 }

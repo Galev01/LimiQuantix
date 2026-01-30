@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::{State, Window};
 use tokio::sync::{mpsc, Mutex};
-use tracing::{debug, error, info, warn};
+use tracing::{error, info};
 
 pub use rfb::RFBClient;
 
@@ -176,27 +176,29 @@ pub async fn connect_vnc(
                     match updates_result {
                         Ok(updates) => {
                             if !updates.is_empty() {
+                                // Calculate non-zero pixels for first update
+                                let non_zero = updates[0].data.iter().filter(|&&b| b != 0).count();
                                 info!(
-                                    "Received {} framebuffer updates, first: {}x{} at ({},{}), {} bytes (Base64)",
+                                    "Received {} framebuffer updates, first: {}x{} at ({},{}), {} bytes, {} non-zero bytes",
                                     updates.len(),
                                     updates[0].width,
                                     updates[0].height,
                                     updates[0].x,
                                     updates[0].y,
-                                    updates[0].data.len()
+                                    updates[0].data.len(),
+                                    non_zero
                                 );
                                 
-                                // Log first few chars for debugging
+                                // Log first few bytes for debugging
                                 if updates[0].data.len() >= 16 {
                                     info!(
-                                        "First 16 chars: {}",
+                                        "First 16 bytes: {:?}",
                                         &updates[0].data[0..16]
                                     );
                                 }
                             } else {
                                 info!("Received empty framebuffer update (0 rects)");
                             }
-                            
                             // Emit framebuffer updates to frontend
                             for update in updates {
                                 if let Err(e) = window_clone.emit("vnc:framebuffer", &update) {

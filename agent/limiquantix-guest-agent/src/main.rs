@@ -517,10 +517,19 @@ async fn telemetry_loop<W: AsyncWriteExt + Unpin + Send + 'static>(
         };
 
         // Send telemetry report with timeout
-        let mut guard = writer.lock().await;
-        let write_timeout = Duration::from_secs(WRITE_TIMEOUT_SECS);
+        // CRITICAL: Use a scoped block to ensure the mutex guard is dropped IMMEDIATELY
+        // after the write operation completes (or times out). This prevents deadlock
+        // if the timeout fires while the write is stuck in kernel space.
+        let write_result = {
+            let mut guard = writer.lock().await;
+            let write_timeout = Duration::from_secs(WRITE_TIMEOUT_SECS);
+            let result = tokio::time::timeout(write_timeout, write_message(&mut *guard, &message)).await;
+            // Guard is dropped here at end of block, BEFORE we process the result
+            drop(guard);
+            result
+        };
         
-        match tokio::time::timeout(write_timeout, write_message(&mut *guard, &message)).await {
+        match write_result {
             Ok(Ok(())) => {
                 // Success
                 if consecutive_failures > 0 {
@@ -543,14 +552,24 @@ async fn telemetry_loop<W: AsyncWriteExt + Unpin + Send + 'static>(
                 health.record_error();
             }
             Err(_timeout) => {
-                // Write timed out - virtio-serial buffer may be full
-                consecutive_failures += 1;
-                warn!(
+                // FATAL: Write timed out - stream is now CORRUPTED!
+                // 
+                // When tokio::time::timeout cancels the write future, it may leave a partial
+                // message on the stream (e.g., just the magic header without the length/payload).
+                // Any subsequent writes will be misaligned, causing the host to see garbage
+                // and enter a resync loop.
+                //
+                // The ONLY safe recovery is to close the stream and reconnect.
+                error!(
                     timeout_secs = WRITE_TIMEOUT_SECS,
-                    consecutive_failures = consecutive_failures,
-                    "Telemetry write timed out - host may not be reading"
+                    "FATAL: Telemetry write timed out - stream is corrupted, forcing reconnect"
                 );
                 health.record_error();
+                
+                // Return error to trigger supervisor reconnection
+                return Err(anyhow::anyhow!(
+                    "Write timeout corrupted stream - reconnection required"
+                ));
             }
         }
     }

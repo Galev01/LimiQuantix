@@ -109,21 +109,38 @@ pub trait Hypervisor: Send + Sync {
     /// 
     /// # Arguments
     /// * `vm_id` - The VM to snapshot
-    /// * `name` - Name for the snapshot
-    /// * `description` - Optional description
-    /// * `disk_only` - If true, only snapshot disks (no memory state). Required for VMs with invtsc/host-passthrough CPU.
+    /// * `options` - Snapshot creation options including name, description, memory inclusion, etc.
+    /// 
+    /// # Snapshot Types
+    /// 
+    /// **Internal snapshots** (disk_only=true, include_memory=false):
+    /// - Stored inside the qcow2 image
+    /// - Fast to create and revert
+    /// - Cannot include memory state with host-passthrough CPU
+    /// 
+    /// **External snapshots with memory** (include_memory=true):
+    /// - Creates overlay qcow2 files for disks
+    /// - Saves memory state to a separate file
+    /// - Works with host-passthrough CPU (uses --live flag)
+    /// - Enables VMware vCenter-like live snapshots
+    /// 
+    /// When `include_memory=true` and the VM is running with host-passthrough CPU,
+    /// this automatically uses external snapshots with the `--live` flag to capture
+    /// memory state without pausing the VM.
     async fn create_snapshot(
         &self, 
         vm_id: &str, 
-        name: &str, 
-        description: &str,
-        disk_only: bool,
+        options: &CreateSnapshotOptions,
     ) -> Result<SnapshotInfo>;
     
     /// Revert to a snapshot.
+    /// 
+    /// For external snapshots, this may require the VM to be stopped first.
     async fn revert_snapshot(&self, vm_id: &str, snapshot_id: &str) -> Result<()>;
     
     /// Delete a snapshot.
+    /// 
+    /// For external snapshots, this merges the overlay back into the base image.
     async fn delete_snapshot(&self, vm_id: &str, snapshot_id: &str) -> Result<()>;
     
     /// List all snapshots for a VM.

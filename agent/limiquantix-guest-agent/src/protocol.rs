@@ -58,9 +58,13 @@ where
     R: AsyncReadExt + Unpin,
     M: Message + Default,
 {
-    let mut resync_bytes_scanned: usize = 0;
+    // Track total bytes scanned across ALL resync attempts in this function call
+    let mut total_resync_bytes: usize = 0;
     
     loop {
+        // Reset per-iteration resync counter (CRITICAL FIX: was not being reset before)
+        let mut resync_bytes_this_iteration: usize = 0;
+        
         // 1. Scan for Magic Header (Resync Mechanism)
         let mut header_byte = [0u8; 1];
         let mut match_count: usize = 0;
@@ -69,6 +73,9 @@ where
             match reader.read(&mut header_byte).await {
                 Ok(0) => {
                     // EOF
+                    if total_resync_bytes > 0 {
+                        debug!(total_bytes_scanned = total_resync_bytes, "EOF reached during resync");
+                    }
                     return Ok(None);
                 }
                 Ok(_) => {}
@@ -80,45 +87,48 @@ where
                 }
             }
 
+            // Count EVERY byte we read (CRITICAL FIX: was only counting mismatches)
+            resync_bytes_this_iteration += 1;
+
             if header_byte[0] == MAGIC_HEADER[match_count] {
                 match_count += 1;
             } else {
-                // Mismatch - check if this byte starts a new sequence
-                if match_count > 0 {
-                    resync_bytes_scanned += match_count;
-                    if resync_bytes_scanned > 0 && resync_bytes_scanned % 1000 == 0 {
-                        warn!(
-                            bytes_scanned = resync_bytes_scanned,
-                            "Protocol resync in progress - scanning for magic header"
-                        );
-                    }
+                // Mismatch - log progress periodically
+                if resync_bytes_this_iteration > 0 && resync_bytes_this_iteration % 1000 == 0 {
+                    warn!(
+                        bytes_scanned_this_attempt = resync_bytes_this_iteration,
+                        total_bytes_scanned = total_resync_bytes + resync_bytes_this_iteration,
+                        "Protocol resync in progress - scanning for magic header"
+                    );
                 }
                 
                 // Check if current byte could be start of new magic sequence
                 match_count = if header_byte[0] == MAGIC_HEADER[0] { 1 } else { 0 };
                 
-                if match_count == 0 {
-                    resync_bytes_scanned += 1;
-                }
-                
                 // Safety limit to prevent infinite scanning
-                if resync_bytes_scanned > MAX_RESYNC_BYTES {
+                if total_resync_bytes + resync_bytes_this_iteration > MAX_RESYNC_BYTES {
                     return Err(anyhow!(
                         "Failed to find magic header after scanning {} bytes - connection may be corrupted",
-                        resync_bytes_scanned
+                        total_resync_bytes + resync_bytes_this_iteration
                     ));
                 }
             }
         }
 
-        // Log if we had to resync
-        if resync_bytes_scanned > 0 {
+        // We found the magic header!
+        // Subtract 4 from resync count since the magic header bytes are valid
+        let garbage_bytes = resync_bytes_this_iteration.saturating_sub(4);
+        
+        // Log if we had to skip garbage
+        if garbage_bytes > 0 {
             warn!(
-                bytes_skipped = resync_bytes_scanned,
+                garbage_bytes_skipped = garbage_bytes,
                 "Protocol resynced - skipped garbage bytes before finding valid header"
             );
-            resync_bytes_scanned = 0;
         }
+        
+        // Reset total counter since we found a valid header
+        total_resync_bytes = 0;
 
         // 2. Read the 4-byte length prefix
         let mut len_buf = [0u8; 4];
@@ -137,7 +147,9 @@ where
 
         // 3. Validate message size - if invalid, resync
         if len == 0 {
-            warn!("Received zero-length message, resyncing...");
+            warn!("Received zero-length message after valid header, resyncing...");
+            // Add 8 bytes to resync counter (4 magic + 4 length)
+            total_resync_bytes += 8;
             continue;
         }
         
@@ -145,9 +157,11 @@ where
             warn!(
                 length = len,
                 max = MAX_MESSAGE_SIZE,
-                "Message length exceeds maximum, resyncing..."
+                length_hex = format!("0x{:08X}", len),
+                "Message length exceeds maximum, likely garbage after valid-looking header, resyncing..."
             );
-            // The length is garbage - go back to scanning for magic header
+            // Add 8 bytes to resync counter (4 magic + 4 length)
+            total_resync_bytes += 8;
             continue;
         }
 
@@ -166,7 +180,7 @@ where
         // 5. Decode the protobuf message
         match M::decode(&payload_buf[..]) {
             Ok(message) => {
-                debug!(length = len, "Message received and decoded");
+                debug!(length = len, "Message received and decoded successfully");
                 return Ok(Some(message));
             }
             Err(e) => {
@@ -175,7 +189,8 @@ where
                     length = len,
                     "Failed to decode protobuf message, resyncing..."
                 );
-                // Corrupted payload - go back to scanning for magic header
+                // Add consumed bytes to resync counter (8 header + payload)
+                total_resync_bytes += 8 + len;
                 continue;
             }
         }

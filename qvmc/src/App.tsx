@@ -1,12 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
-import { getConsoleInfo } from './lib/tauri-api';
 import { VMSidebar, SavedConnection } from './components/VMSidebar';
 import { ConsoleTabs, TabConnection } from './components/ConsoleTabs';
 import { ConsoleTabPane } from './components/ConsoleTabPane';
 import { Settings } from './components/Settings';
-import { DebugPanel } from './components/DebugPanel';
 import { Monitor } from 'lucide-react';
+import { getConsoleInfo } from './lib/tauri-api';
 
 interface PendingConnection {
   control_plane_url: string;
@@ -28,7 +27,6 @@ function App() {
 
   // Settings modal
   const [showSettings, setShowSettings] = useState(false);
-  const [showDebugPanel, setShowDebugPanel] = useState(false);
 
   // Deep link check
   const hasCheckedPending = useRef(false);
@@ -57,16 +55,22 @@ function App() {
               vmName: pending.vm_name,
             });
 
-            // Fetch console info (including password)
+            // Start VNC connection - first get console info for password
             console.log('[QvMC] Fetching console info...');
-            const consoleInfo = await getConsoleInfo(pending.control_plane_url, pending.vm_id);
+            let password: string | null = null;
+            try {
+              const consoleInfo = await getConsoleInfo(pending.control_plane_url, pending.vm_id);
+              console.log('[QvMC] Console info received:', { host: consoleInfo.host, port: consoleInfo.port, hasPassword: !!consoleInfo.password });
+              password = consoleInfo.password;
+            } catch (err) {
+              console.warn('[QvMC] Failed to get console info, trying without password:', err);
+            }
 
-            // Start VNC connection
             console.log('[QvMC] Starting VNC connection...');
             const vncConnectionId = await invoke<string>('connect_vnc', {
               controlPlaneUrl: pending.control_plane_url,
               vmId: pending.vm_id,
-              password: consoleInfo.password || null,
+              password,
             });
 
             console.log('[QvMC] VNC connected:', vncConnectionId);
@@ -112,13 +116,21 @@ function App() {
     setConnectingVmId(connection.vm_id);
 
     try {
-      // Fetch console info (including password)
-      const consoleInfo = await getConsoleInfo(connection.control_plane_url, connection.vm_id);
+      // First fetch console info to get the VNC password
+      console.log('[QvMC] Fetching console info for', connection.vm_id);
+      let password: string | null = null;
+      try {
+        const consoleInfo = await getConsoleInfo(connection.control_plane_url, connection.vm_id);
+        console.log('[QvMC] Console info received:', { host: consoleInfo.host, port: consoleInfo.port, hasPassword: !!consoleInfo.password });
+        password = consoleInfo.password;
+      } catch (err) {
+        console.warn('[QvMC] Failed to get console info, trying without password:', err);
+      }
 
       const vncConnectionId = await invoke<string>('connect_vnc', {
         controlPlaneUrl: connection.control_plane_url,
         vmId: connection.vm_id,
-        password: consoleInfo.password || null,
+        password,
       });
 
       // Create new tab
@@ -257,19 +269,10 @@ function App() {
       {showSettings && (
         <div className="modal-overlay" onClick={() => setShowSettings(false)}>
           <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
-            <Settings
-              onClose={() => setShowSettings(false)}
-              onOpenDebugLogs={() => {
-                setShowSettings(false);
-                setShowDebugPanel(true);
-              }}
-            />
+            <Settings onClose={() => setShowSettings(false)} />
           </div>
         </div>
       )}
-
-      {/* Global Debug Panel */}
-      <DebugPanel isOpen={showDebugPanel} onClose={() => setShowDebugPanel(false)} />
     </div>
   );
 }

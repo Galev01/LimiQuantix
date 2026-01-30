@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
-import { Portal } from './Portal';
 import {
   Monitor,
   Plus,
@@ -54,7 +53,6 @@ export function VMSidebar({
   const [_error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
-  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const [executingAction, setExecutingAction] = useState<{ id: string; action: VMAction } | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showISODialog, setShowISODialog] = useState<SavedConnection | null>(null);
@@ -71,25 +69,12 @@ export function VMSidebar({
 
   // Close action menu when clicking outside
   useEffect(() => {
-    const handleClick = () => {
-      setActionMenuId(null);
-      setMenuPosition(null);
-    };
+    const handleClick = () => setActionMenuId(null);
     if (actionMenuId) {
       document.addEventListener('click', handleClick);
       return () => document.removeEventListener('click', handleClick);
     }
   }, [actionMenuId]);
-
-  // Handle window resize to close menu
-  useEffect(() => {
-    const handleResize = () => {
-      setActionMenuId(null);
-      setMenuPosition(null);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   const loadConnections = async () => {
     try {
@@ -131,7 +116,6 @@ export function VMSidebar({
   const handleVMAction = async (e: React.MouseEvent, connection: SavedConnection, action: VMAction) => {
     e.stopPropagation();
     setActionMenuId(null);
-    setMenuPosition(null);
     setExecutingAction({ id: connection.id, action });
     setError(null);
 
@@ -204,21 +188,7 @@ export function VMSidebar({
 
   const toggleActionMenu = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-
-    if (actionMenuId === id) {
-      setActionMenuId(null);
-      setMenuPosition(null);
-    } else {
-      const button = e.currentTarget as HTMLElement;
-      const rect = button.getBoundingClientRect();
-
-      // Calculate position (aligned to right of button, slightly offset)
-      setMenuPosition({
-        top: rect.bottom + 5,
-        left: rect.left,
-      });
-      setActionMenuId(id);
-    }
+    setActionMenuId(actionMenuId === id ? null : id);
   };
 
   return (
@@ -311,74 +281,58 @@ export function VMSidebar({
                           <MoreVertical className="w-3.5 h-3.5" />
                         </button>
 
-                        {/* Dropdown Menu via Portal */}
-                        {actionMenuId === connection.id && menuPosition && (
-                          <Portal>
-                            <div
-                              className="dropdown-menu vm-sidebar-dropdown"
-                              style={{
-                                position: 'fixed',
-                                top: menuPosition.top,
-                                left: menuPosition.left,
-                                width: '200px',
-                                // ensure it's on top of everything
-                                zIndex: 9999,
-                                margin: 0 // clear sidebar margin overrides
-                              }}
-                              onClick={(e) => e.stopPropagation()}
+                        {actionMenuId === connection.id && (
+                          <div className="dropdown-menu vm-sidebar-dropdown" onClick={(e) => e.stopPropagation()}>
+                            <div className="dropdown-section-title">Power</div>
+                            <button
+                              className="dropdown-item"
+                              onClick={(e) => handleVMAction(e, connection, 'start')}
                             >
-                              <div className="dropdown-section-title">Power</div>
-                              <button
-                                className="dropdown-item"
-                                onClick={(e) => handleVMAction(e, connection, 'start')}
-                              >
-                                <Play className="text-green-400" />
-                                <span>Start</span>
-                              </button>
-                              <button
-                                className="dropdown-item"
-                                onClick={(e) => handleVMAction(e, connection, 'shutdown')}
-                              >
-                                <Power className="text-yellow-400" />
-                                <span>Shutdown</span>
-                              </button>
-                              <button
-                                className="dropdown-item"
-                                onClick={(e) => handleVMAction(e, connection, 'reboot')}
-                              >
-                                <RotateCcw className="text-blue-400" />
-                                <span>Reboot</span>
-                              </button>
-                              <button
-                                className="dropdown-item"
-                                onClick={(e) => handleVMAction(e, connection, 'stop')}
-                              >
-                                <Square className="text-red-400" />
-                                <span>Force Stop</span>
-                              </button>
-                              <div className="dropdown-divider" />
-                              <button
-                                className="dropdown-item"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActionMenuId(null);
-                                  setMenuPosition(null);
-                                  setShowISODialog(connection);
-                                }}
-                              >
-                                <Disc className="text-purple-400" />
-                                <span>Mount ISO</span>
-                              </button>
-                              <div className="dropdown-divider" />
-                              <button
-                                className="dropdown-item text-red-400"
-                                onClick={(e) => handleDelete(e, connection.id)}
-                              >
-                                <Trash2 />
-                                <span>Delete</span>
-                              </button>
-                            </div>
-                          </Portal>
+                              <Play className="text-green-400" />
+                              <span>Start</span>
+                            </button>
+                            <button
+                              className="dropdown-item"
+                              onClick={(e) => handleVMAction(e, connection, 'shutdown')}
+                            >
+                              <Power className="text-yellow-400" />
+                              <span>Shutdown</span>
+                            </button>
+                            <button
+                              className="dropdown-item"
+                              onClick={(e) => handleVMAction(e, connection, 'reboot')}
+                            >
+                              <RotateCcw className="text-blue-400" />
+                              <span>Reboot</span>
+                            </button>
+                            <button
+                              className="dropdown-item"
+                              onClick={(e) => handleVMAction(e, connection, 'stop')}
+                            >
+                              <Square className="text-red-400" />
+                              <span>Force Stop</span>
+                            </button>
+                            <div className="dropdown-divider" />
+                            <button
+                              className="dropdown-item"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActionMenuId(null);
+                                setShowISODialog(connection);
+                              }}
+                            >
+                              <Disc className="text-purple-400" />
+                              <span>Mount ISO</span>
+                            </button>
+                            <div className="dropdown-divider" />
+                            <button
+                              className="dropdown-item text-red-400"
+                              onClick={(e) => handleDelete(e, connection.id)}
+                            >
+                              <Trash2 />
+                              <span>Delete</span>
+                            </button>
+                          </div>
                         )}
                       </div>
                     </>

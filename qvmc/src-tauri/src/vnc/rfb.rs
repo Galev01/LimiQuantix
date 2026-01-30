@@ -1,3 +1,8 @@
+//! RFB Protocol Implementation (RFC 6143)
+//!
+//! This module implements the Remote Framebuffer protocol used by VNC.
+//! Supports both direct TCP connections and WebSocket proxy connections.
+
 use super::encodings::{self, TightZlibState};
 use des::cipher::{BlockEncrypt, KeyInit};
 use des::Des;
@@ -8,9 +13,9 @@ use thiserror::Error;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
-use tracing::{debug, info, warn};
-use base64::Engine;
+use tracing::{debug, info, trace, warn};
 
+/// RFB protocol errors
 #[derive(Error, Debug)]
 pub enum RFBError {
     #[error("IO error: {0}")]
@@ -103,9 +108,9 @@ pub struct FramebufferUpdate {
     pub y: u16,
     pub width: u16,
     pub height: u16,
-    /// RGBA pixel data as Base64 encoded string
-    /// This avoids the overhead of serializing Vec<u8> as a JSON array of numbers
-    pub data: String,
+    /// RGBA pixel data as array of numbers (for JS compatibility)
+    /// Note: Serde serializes Vec<u8> as an array of numbers, not bytes
+    pub data: Vec<u8>,
 }
 
 /// Check if serde properly handles the Vec<u8> as array
@@ -115,8 +120,16 @@ mod tests {
     
     #[test]
     fn test_framebuffer_serialization() {
-       // This test is no longer valid as we changed data to String
-       // Kept empty to satisfy structure
+        let update = FramebufferUpdate {
+            x: 0,
+            y: 0,
+            width: 2,
+            height: 2,
+            data: vec![255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255],
+        };
+        let json = serde_json::to_string(&update).unwrap();
+        println!("Serialized: {}", json);
+        assert!(json.contains("[255,0,0,255"));
     }
 }
 
@@ -251,24 +264,7 @@ impl RFBClient {
     pub async fn connect_websocket(ws_url: &str) -> Result<Self, RFBError> {
         info!("Connecting to VNC via WebSocket proxy: {}", ws_url);
         
-        // Create a custom TLS connector that accepts invalid certificates (for self-signed certs)
-        use tokio_tungstenite::Connector;
-        
-        // Build native-tls config that accepts any certificate
-        let tls_connector = native_tls::TlsConnector::builder()
-            .danger_accept_invalid_certs(true)
-            .danger_accept_invalid_hostnames(true)
-            .build()
-            .map_err(|e| RFBError::Protocol(format!("Failed to build TLS connector: {}", e)))?;
-        
-        let connector = Connector::NativeTls(tls_connector);
-        
-        let (ws_stream, _response) = tokio_tungstenite::connect_async_tls_with_config(
-            ws_url,
-            None,
-            false,
-            Some(connector),
-        )
+        let (ws_stream, _response) = connect_async(ws_url)
             .await
             .map_err(|e| RFBError::Protocol(format!("WebSocket connection failed: {}", e)))?;
         
@@ -558,7 +554,7 @@ impl RFBClient {
                                 y,
                                 width,
                                 height,
-                                data: base64::engine::general_purpose::STANDARD.encode(&rgba),
+                                data: rgba,
                             });
                         }
                         1 => {
@@ -599,7 +595,7 @@ impl RFBClient {
                                         y,
                                         width,
                                         height,
-                                        data: base64::engine::general_purpose::STANDARD.encode(&rgba),
+                                        data: rgba,
                                     });
                                 }
                                 Err(e) => {
@@ -617,7 +613,7 @@ impl RFBClient {
                                 y,
                                 width,
                                 height,
-                                data: base64::engine::general_purpose::STANDARD.encode(&rgba),
+                                data: rgba,
                             });
                         }
                         6 => {
@@ -638,7 +634,7 @@ impl RFBClient {
                                         y,
                                         width,
                                         height,
-                                        data: base64::engine::general_purpose::STANDARD.encode(&rgba),
+                                        data: rgba,
                                     });
                                 }
                                 Err(e) => {
@@ -655,7 +651,7 @@ impl RFBClient {
                                 y,
                                 width,
                                 height,
-                                data: base64::engine::general_purpose::STANDARD.encode(&rgba),
+                                data: rgba,
                             });
                         }
                         16 => {
@@ -676,7 +672,7 @@ impl RFBClient {
                                         y,
                                         width,
                                         height,
-                                        data: base64::engine::general_purpose::STANDARD.encode(&rgba),
+                                        data: rgba,
                                     });
                                 }
                                 Err(e) => {
@@ -1070,6 +1066,7 @@ impl RFBClient {
 
         rgba
     }
+
     /// Send key event
     pub async fn send_key_event(&mut self, key: u32, down: bool) -> Result<(), RFBError> {
         let msg = [

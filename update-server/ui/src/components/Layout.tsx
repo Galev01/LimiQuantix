@@ -5,7 +5,8 @@ import {
   Upload, 
   Settings, 
   Server,
-  RefreshCw 
+  RefreshCw,
+  Disc
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
@@ -18,6 +19,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { path: '/', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
   { path: '/releases', label: 'Releases', icon: <Package size={20} /> },
+  { path: '/isos', label: 'Agent ISOs', icon: <Disc size={20} /> },
   { path: '/publish', label: 'Publish', icon: <Upload size={20} /> },
   { path: '/settings', label: 'Settings', icon: <Settings size={20} /> },
 ];

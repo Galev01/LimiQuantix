@@ -41,10 +41,10 @@ export function ConsoleTabs({
               )}
             </div>
             <span className="console-tab-name">{tab.vmName}</span>
-            
+
             {/* Status indicator */}
             <div className={`console-tab-status ${tab.status}`} />
-            
+
             {/* Close button */}
             <button
               onClick={(e) => {

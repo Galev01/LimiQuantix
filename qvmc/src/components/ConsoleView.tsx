@@ -393,44 +393,21 @@ export function ConsoleView({
         return;
       }
 
-      // Calculate the required canvas size from this update
-      const requiredWidth = update.x + update.width;
-      const requiredHeight = update.y + update.height;
-
-      // If canvas is not sized yet OR needs to grow to fit this update
+      // If canvas not sized yet, initialize it from the update dimensions
+      // This handles the case where we receive a full screen update before vnc:connected
       if (canvas.width === 0 || canvas.height === 0) {
-        // First update - initialize canvas
-        // Use the update dimensions directly if it's a full-screen update at (0,0)
-        // Otherwise, use the extent (x + width, y + height) as minimum size
-        const newWidth = update.x === 0 ? update.width : requiredWidth;
-        const newHeight = update.y === 0 ? update.height : requiredHeight;
-
-        if (newWidth > 0 && newHeight > 0) {
-          vncLog.info(`Initializing canvas from FB update: ${newWidth}x${newHeight} (update at ${update.x},${update.y} size ${update.width}x${update.height})`);
-          canvas.width = newWidth;
-          canvas.height = newHeight;
-          setResolution({ width: newWidth, height: newHeight });
+        // Use the update position + dimensions to infer full resolution
+        // A full screen update at (0,0) gives us the resolution directly
+        if (update.x === 0 && update.y === 0 && update.width > 0 && update.height > 0) {
+          vncLog.info(`Initializing canvas from first FB update: ${update.width}x${update.height}`);
+          canvas.width = update.width;
+          canvas.height = update.height;
+          setResolution({ width: update.width, height: update.height });
         } else {
+          // Partial update but canvas not ready - skip for now
+          vncLog.warn(`Canvas not initialized, skipping partial update at (${update.x},${update.y})`);
           return;
         }
-      } else if (requiredWidth > canvas.width || requiredHeight > canvas.height) {
-        // Canvas needs to grow - this can happen if VNC server resizes
-        const newWidth = Math.max(canvas.width, requiredWidth);
-        const newHeight = Math.max(canvas.height, requiredHeight);
-
-        vncLog.info(`Expanding canvas: ${canvas.width}x${canvas.height} -> ${newWidth}x${newHeight}`);
-
-        // Save current content
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-        // Resize canvas
-        canvas.width = newWidth;
-        canvas.height = newHeight;
-
-        // Restore content
-        ctx.putImageData(imageData, 0, 0);
-
-        setResolution({ width: newWidth, height: newHeight });
       }
 
       // Create ImageData with correct dimensions

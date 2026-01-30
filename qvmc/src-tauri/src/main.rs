@@ -249,7 +249,6 @@ fn main() {
             api::delete_connection,
             api::get_config,
             api::save_config,
-            api::get_console_info,
             // VNC commands
             vnc::connect_vnc,
             vnc::disconnect_vnc,
@@ -269,6 +268,8 @@ fn main() {
             api::stop_iso_server,
             api::get_iso_server_status,
             api::get_network_interfaces,
+            // Control Plane API commands
+            api::get_console_info_cmd,
             // Deep link commands
             get_pending_connection,
             add_and_connect,

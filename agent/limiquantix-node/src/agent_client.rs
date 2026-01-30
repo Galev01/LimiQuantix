@@ -26,7 +26,7 @@
 //! - Example: `\\.\pipe\org.quantix.agent.{vm_id}`
 
 use anyhow::{anyhow, Result};
-use limiquantix_proto::agent::{ExecuteRequest, ExecuteResponse, TelemetryReport};
+use limiquantix_proto::agent::{AgentReadyEvent, ExecuteRequest, ExecuteResponse, TelemetryReport};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -89,6 +89,8 @@ mod unix_impl {
         writer: Option<Arc<Mutex<WriteHalf<UnixStream>>>>,
         pending: Arc<Mutex<HashMap<String, PendingRequest>>>,
         telemetry_tx: Option<mpsc::Sender<TelemetryReport>>,
+        /// Channel for forwarding AgentReadyEvent to the service
+        agent_ready_tx: Option<mpsc::Sender<AgentReadyEvent>>,
         /// Tracks if the response handler task is still alive
         /// This is crucial for detecting zombie connections where the writer
         /// exists but the reader has died.
@@ -111,13 +113,17 @@ mod unix_impl {
                 writer: None,
                 pending: Arc::new(Mutex::new(HashMap::new())),
                 telemetry_tx: None,
+                agent_ready_tx: None,
                 response_handler_alive: Arc::new(AtomicBool::new(false)),
             }
         }
         
-        /// Find the agent socket path by checking multiple possible locations
+        /// Find the agent socket path by checking multiple possible locations.
+        /// 
+        /// CRITICAL: This function MUST verify that the directory name contains the VM ID
+        /// to prevent socket hijacking where we connect to the wrong VM's socket.
         fn find_socket_path(vm_id: &str) -> Option<PathBuf> {
-            // Primary path: Our custom socket path
+            // Primary path: Our custom socket path (already includes VM ID in filename)
             let primary = PathBuf::from(format!("{}/{}.agent.sock", SOCKET_BASE_PATH, vm_id));
             if primary.exists() {
                 debug!(vm_id = %vm_id, path = %primary.display(), "Found agent socket at primary path");
@@ -126,51 +132,63 @@ mod unix_impl {
             
             // Fallback: Check libvirt's standard channel paths
             // libvirt creates sockets like /run/libvirt/qemu/channel/{domain-id}-{vm_name}/org.quantix.agent.0
-            // We need to find the right directory
+            // We need to find the right directory that MATCHES our VM ID.
             // Check both new name (org.quantix) and legacy name (org.limiquantix)
             let channel_names = ["org.quantix.agent.0", "org.limiquantix.agent.0"];
             
-            let libvirt_base = std::path::Path::new("/run/libvirt/qemu/channel");
-            if libvirt_base.exists() {
-                if let Ok(entries) = std::fs::read_dir(libvirt_base) {
-                    for entry in entries.flatten() {
-                        let dir_name = entry.file_name();
-                        let dir_str = dir_name.to_string_lossy();
-                        
-                        // The directory might contain the VM ID or VM name
-                        // Check for our agent socket inside with both channel names
-                        for channel_name in &channel_names {
-                            let socket_path = entry.path().join(channel_name);
-                            if socket_path.exists() {
-                                // Verify this is for our VM by checking if the dir contains our vm_id
-                                // or by trying to match patterns
-                                debug!(vm_id = %vm_id, dir = %dir_str, path = %socket_path.display(), 
-                                       "Found potential libvirt agent socket");
-                                
-                                // For now, if we can't definitively match, we'll accept it
-                                // In the future we could parse the virsh dumpxml to get the exact mapping
-                                return Some(socket_path);
-                            }
+            // Helper function to check a libvirt channel directory
+            let check_libvirt_channel_dir = |base_path: &std::path::Path| -> Option<PathBuf> {
+                if !base_path.exists() {
+                    return None;
+                }
+                
+                let entries = std::fs::read_dir(base_path).ok()?;
+                
+                for entry in entries.flatten() {
+                    let dir_name = entry.file_name();
+                    let dir_str = dir_name.to_string_lossy();
+                    
+                    // ✅ CRITICAL FIX: Verify this directory belongs to our VM!
+                    // Libvirt directories are usually "{domain-id}-{vm_name}" format.
+                    // We MUST check if the VM ID is present in the directory name.
+                    // This prevents connecting to the wrong VM's socket (socket hijacking).
+                    if !dir_str.contains(vm_id) {
+                        debug!(
+                            vm_id = %vm_id, 
+                            dir = %dir_str, 
+                            "Skipping libvirt channel directory - does not match VM ID"
+                        );
+                        continue;
+                    }
+                    
+                    // Directory matches our VM ID - check for our agent socket
+                    for channel_name in &channel_names {
+                        let socket_path = entry.path().join(channel_name);
+                        if socket_path.exists() {
+                            info!(
+                                vm_id = %vm_id, 
+                                dir = %dir_str, 
+                                path = %socket_path.display(), 
+                                "Found verified libvirt agent socket (VM ID matches directory)"
+                            );
+                            return Some(socket_path);
                         }
                     }
                 }
+                
+                None
+            };
+            
+            // Check /run/libvirt/qemu/channel/
+            let libvirt_run = std::path::Path::new("/run/libvirt/qemu/channel");
+            if let Some(path) = check_libvirt_channel_dir(libvirt_run) {
+                return Some(path);
             }
             
             // Also check /var/lib/libvirt/qemu/channel/
             let libvirt_var = std::path::Path::new("/var/lib/libvirt/qemu/channel");
-            if libvirt_var.exists() {
-                if let Ok(entries) = std::fs::read_dir(libvirt_var) {
-                    for entry in entries.flatten() {
-                        for channel_name in &channel_names {
-                            let socket_path = entry.path().join(channel_name);
-                            if socket_path.exists() {
-                                debug!(vm_id = %vm_id, path = %socket_path.display(), 
-                                       "Found agent socket in /var/lib/libvirt");
-                                return Some(socket_path);
-                            }
-                        }
-                    }
-                }
+            if let Some(path) = check_libvirt_channel_dir(libvirt_var) {
+                return Some(path);
             }
             
             debug!(vm_id = %vm_id, "No agent socket found in any known location");
@@ -185,6 +203,7 @@ mod unix_impl {
                 writer: None,
                 pending: Arc::new(Mutex::new(HashMap::new())),
                 telemetry_tx: None,
+                agent_ready_tx: None,
                 response_handler_alive: Arc::new(AtomicBool::new(false)),
             }
         }
@@ -192,6 +211,12 @@ mod unix_impl {
         /// Set a channel to receive telemetry updates.
         pub fn with_telemetry_channel(mut self, tx: mpsc::Sender<TelemetryReport>) -> Self {
             self.telemetry_tx = Some(tx);
+            self
+        }
+
+        /// Set a channel to receive AgentReadyEvent.
+        pub fn with_agent_ready_channel(mut self, tx: mpsc::Sender<AgentReadyEvent>) -> Self {
+            self.agent_ready_tx = Some(tx);
             self
         }
 
@@ -332,6 +357,7 @@ mod unix_impl {
             // Start the response handler with just the reader half
             let pending = self.pending.clone();
             let telemetry_tx = self.telemetry_tx.clone();
+            let agent_ready_tx = self.agent_ready_tx.clone();
             let vm_id = self.vm_id.clone();
             
             // Mark response handler as alive before spawning
@@ -340,7 +366,7 @@ mod unix_impl {
 
             tokio::spawn(async move {
                 info!(vm_id = %vm_id, "Response handler task starting");
-                let result = response_handler(reader, pending, telemetry_tx, vm_id.clone()).await;
+                let result = response_handler(reader, pending, telemetry_tx, agent_ready_tx, vm_id.clone()).await;
                 
                 // Mark handler as dead when exiting (for any reason)
                 handler_alive.store(false, Ordering::SeqCst);
@@ -731,6 +757,7 @@ mod unix_impl {
         mut reader: ReadHalf<UnixStream>,
         pending: Arc<Mutex<HashMap<String, PendingRequest>>>,
         telemetry_tx: Option<mpsc::Sender<TelemetryReport>>,
+        agent_ready_tx: Option<mpsc::Sender<AgentReadyEvent>>,
         vm_id: String,
     ) -> Result<()> {
         info!(vm_id = %vm_id, "Response handler started - now listening for messages from guest agent");
@@ -775,8 +802,17 @@ mod unix_impl {
                         vm_id = %vm_id,
                         version = %ready.version,
                         hostname = %ready.hostname,
-                        "Agent ready"
+                        os = %ready.os_name,
+                        kernel = %ready.kernel_version,
+                        ips = ?ready.ip_addresses,
+                        "Agent ready event received"
                     );
+                    // Forward to service to update agent cache
+                    if let Some(ref tx) = agent_ready_tx {
+                        if let Err(e) = tx.send(ready.clone()).await {
+                            warn!(vm_id = %vm_id, error = %e, "Failed to forward AgentReadyEvent");
+                        }
+                    }
                     continue;
                 }
                 Some(agent_message::Payload::Error(err)) => {
@@ -844,9 +880,13 @@ mod unix_impl {
         R: AsyncReadExt + Unpin,
         M: Message + Default,
     {
-        let mut resync_bytes_scanned: usize = 0;
+        // Track total bytes scanned across ALL resync attempts in this function call
+        let mut total_resync_bytes: usize = 0;
         
         loop {
+            // Reset per-iteration resync counter (CRITICAL FIX: was not being reset before)
+            let mut resync_bytes_this_iteration: usize = 0;
+            
             // 1. Scan for Magic Header (Resync Mechanism)
             let mut header_byte = [0u8; 1];
             let mut match_count: usize = 0;
@@ -855,6 +895,9 @@ mod unix_impl {
                 match reader.read(&mut header_byte).await {
                     Ok(0) => {
                         // EOF
+                        if total_resync_bytes > 0 {
+                            debug!(total_bytes_scanned = total_resync_bytes, "EOF reached during resync");
+                        }
                         return Ok(None);
                     }
                     Ok(_) => {}
@@ -866,45 +909,48 @@ mod unix_impl {
                     }
                 }
 
+                // Count EVERY byte we read (CRITICAL FIX: was only counting mismatches)
+                resync_bytes_this_iteration += 1;
+
                 if header_byte[0] == MAGIC_HEADER[match_count] {
                     match_count += 1;
                 } else {
-                    // Mismatch - check if this byte starts a new sequence
-                    if match_count > 0 {
-                        resync_bytes_scanned += match_count;
-                        if resync_bytes_scanned > 0 && resync_bytes_scanned % 1000 == 0 {
-                            warn!(
-                                bytes_scanned = resync_bytes_scanned,
-                                "Protocol resync in progress - scanning for magic header"
-                            );
-                        }
+                    // Mismatch - log progress periodically
+                    if resync_bytes_this_iteration > 0 && resync_bytes_this_iteration % 1000 == 0 {
+                        warn!(
+                            bytes_scanned_this_attempt = resync_bytes_this_iteration,
+                            total_bytes_scanned = total_resync_bytes + resync_bytes_this_iteration,
+                            "Protocol resync in progress - scanning for magic header"
+                        );
                     }
                     
                     // Check if current byte could be start of new magic sequence
                     match_count = if header_byte[0] == MAGIC_HEADER[0] { 1 } else { 0 };
                     
-                    if match_count == 0 {
-                        resync_bytes_scanned += 1;
-                    }
-                    
                     // Safety limit to prevent infinite scanning
-                    if resync_bytes_scanned > MAX_RESYNC_BYTES {
+                    if total_resync_bytes + resync_bytes_this_iteration > MAX_RESYNC_BYTES {
                         return Err(anyhow!(
                             "Failed to find magic header after scanning {} bytes - connection may be corrupted",
-                            resync_bytes_scanned
+                            total_resync_bytes + resync_bytes_this_iteration
                         ));
                     }
                 }
             }
 
-            // Log if we had to resync
-            if resync_bytes_scanned > 0 {
+            // We found the magic header!
+            // Subtract 4 from resync count since the magic header bytes are valid
+            let garbage_bytes = resync_bytes_this_iteration.saturating_sub(4);
+            
+            // Log if we had to skip garbage
+            if garbage_bytes > 0 {
                 warn!(
-                    bytes_skipped = resync_bytes_scanned,
+                    garbage_bytes_skipped = garbage_bytes,
                     "Protocol resynced - skipped garbage bytes before finding valid header"
                 );
-                resync_bytes_scanned = 0;
             }
+            
+            // Reset total counter since we found a valid header
+            total_resync_bytes = 0;
 
             // 2. Read the 4-byte length prefix
             let mut len_buf = [0u8; 4];
@@ -922,7 +968,25 @@ mod unix_impl {
 
             // 3. Validate message size - if invalid, resync
             if len == 0 {
-                warn!("Received zero-length message, resyncing...");
+                warn!("Received zero-length message after valid header, resyncing...");
+                // Add 8 bytes to resync counter (4 magic + 4 length)
+                total_resync_bytes += 8;
+                continue;
+            }
+            
+            // Check for "magic header as length" - this happens when a partial write 
+            // left just the magic header, and we're now reading the NEXT message's 
+            // magic header (0x51545801 = 1364547585) as the "length" field.
+            // This is a definite desync condition.
+            const MAGIC_AS_U32: u32 = 0x51545801; // "QTX1" as big-endian u32
+            if len_buf == MAGIC_AS_U32.to_be_bytes() {
+                warn!(
+                    "Detected magic header in length field - stream desync from partial write, resyncing..."
+                );
+                // We just consumed what was actually a magic header as a "length".
+                // The next 4 bytes will be the actual length of that message.
+                // Add 4 bytes to resync counter (just the misread 4 bytes)
+                total_resync_bytes += 4;
                 continue;
             }
             
@@ -930,9 +994,11 @@ mod unix_impl {
                 warn!(
                     length = len,
                     max = MAX_MESSAGE_SIZE,
-                    "Message length exceeds maximum, resyncing..."
+                    length_hex = format!("0x{:08X}", len),
+                    "Message length exceeds maximum, likely garbage after valid-looking header, resyncing..."
                 );
-                // The length is garbage - go back to scanning for magic header
+                // Add 8 bytes to resync counter (4 magic + 4 length)
+                total_resync_bytes += 8;
                 continue;
             }
 
@@ -951,7 +1017,7 @@ mod unix_impl {
             // 5. Decode the protobuf message
             match M::decode(&payload[..]) {
                 Ok(message) => {
-                    debug!(length = len, "Message received and decoded");
+                    debug!(length = len, "Message received and decoded successfully");
                     return Ok(Some(message));
                 }
                 Err(e) => {
@@ -960,7 +1026,8 @@ mod unix_impl {
                         length = len,
                         "Failed to decode protobuf message, resyncing..."
                     );
-                    // Corrupted payload - go back to scanning for magic header
+                    // Add consumed bytes to resync counter (8 header + payload)
+                    total_resync_bytes += 8 + len;
                     continue;
                 }
             }

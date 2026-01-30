@@ -70,8 +70,10 @@ struct CachedAgentInfo {
     os_name: String,
     os_version: String,
     kernel_version: String,
+    architecture: String,
     hostname: String,
     ip_addresses: Vec<String>,
+    capabilities: Vec<String>,
     last_telemetry: Option<TelemetryReport>,
     last_seen: Option<std::time::Instant>,
 }
@@ -290,7 +292,14 @@ impl NodeDaemonServiceImpl {
                     
                     // Try to connect with timeout
                     debug!(vm_id = %vm_id, "Attempting to connect to agent");
-                    let mut client = AgentClient::new(vm_id);
+                    
+                    // Create channels for pushed events from the agent
+                    let (telemetry_tx, mut telemetry_rx) = tokio::sync::mpsc::channel::<TelemetryReport>(32);
+                    let (agent_ready_tx, mut agent_ready_rx) = tokio::sync::mpsc::channel::<limiquantix_proto::agent::AgentReadyEvent>(8);
+                    
+                    let mut client = AgentClient::new(vm_id)
+                        .with_telemetry_channel(telemetry_tx)
+                        .with_agent_ready_channel(agent_ready_tx);
                     
                     let connect_result = tokio::time::timeout(
                         Duration::from_secs(CONNECTION_TIMEOUT_SECS),
@@ -302,6 +311,66 @@ impl NodeDaemonServiceImpl {
                             info!(vm_id = %vm_id, "Background connection to agent established");
                             let mut agents = agent_manager.write().await;
                             agents.insert(vm_id.clone(), client);
+                            
+                            // Spawn a task to receive AgentReadyEvent and update the cache with system info
+                            let vm_id_for_ready = vm_id.clone();
+                            let agent_cache_for_ready = agent_cache.clone();
+                            tokio::spawn(async move {
+                                while let Some(ready) = agent_ready_rx.recv().await {
+                                    info!(
+                                        vm_id = %vm_id_for_ready,
+                                        version = %ready.version,
+                                        hostname = %ready.hostname,
+                                        os = %ready.os_name,
+                                        kernel = %ready.kernel_version,
+                                        ips = ?ready.ip_addresses,
+                                        "Updating cache from AgentReadyEvent"
+                                    );
+                                    let mut cache = agent_cache_for_ready.write().await;
+                                    let entry = cache.entry(vm_id_for_ready.clone()).or_default();
+                                    entry.connected = true;
+                                    entry.version = ready.version.clone();
+                                    entry.os_name = ready.os_name.clone();
+                                    entry.os_version = ready.os_version.clone();
+                                    entry.kernel_version = ready.kernel_version.clone();
+                                    entry.architecture = ready.architecture.clone();
+                                    entry.hostname = ready.hostname.clone();
+                                    entry.ip_addresses = ready.ip_addresses.clone();
+                                    entry.capabilities = ready.capabilities.clone();
+                                    entry.last_seen = Some(std::time::Instant::now());
+                                }
+                                debug!(vm_id = %vm_id_for_ready, "AgentReady receiver task ended");
+                            });
+                            
+                            // Spawn a task to receive pushed telemetry and update the cache
+                            let vm_id_for_telemetry = vm_id.clone();
+                            let agent_cache_for_telemetry = agent_cache.clone();
+                            tokio::spawn(async move {
+                                while let Some(telemetry) = telemetry_rx.recv().await {
+                                    debug!(
+                                        vm_id = %vm_id_for_telemetry,
+                                        hostname = %telemetry.hostname,
+                                        "Received pushed telemetry from guest agent"
+                                    );
+                                    // Update the cache with the telemetry data
+                                    let mut cache = agent_cache_for_telemetry.write().await;
+                                    let entry = cache.entry(vm_id_for_telemetry.clone()).or_default();
+                                    entry.connected = true;
+                                    entry.hostname = telemetry.hostname.clone();
+                                    entry.last_telemetry = Some(telemetry.clone());
+                                    entry.last_seen = Some(std::time::Instant::now());
+                                    
+                                    // Extract IPs from interfaces
+                                    let mut ips = Vec::new();
+                                    for iface in &telemetry.interfaces {
+                                        ips.extend(iface.ipv4_addresses.clone());
+                                    }
+                                    if !ips.is_empty() {
+                                        entry.ip_addresses = ips;
+                                    }
+                                }
+                                debug!(vm_id = %vm_id_for_telemetry, "Telemetry receiver task ended");
+                            });
                         }
                         Ok(Err(e)) => {
                             debug!(vm_id = %vm_id, error = %e, "Failed to connect to agent");
@@ -820,13 +889,42 @@ impl NodeDaemonServiceImpl {
     /// Get or create an agent client for a VM with a specific socket path
     /// Returns Ok(()) if connected, Err(Status) if connection failed
     pub async fn get_agent_client_with_socket(&self, vm_id: &str, socket_path: Option<std::path::PathBuf>) -> Result<(), Status> {
+        // First, check with a read lock if agent already exists and is connected
+        {
+            let agents = self.agent_manager.read().await;
+            if let Some(client) = agents.get(vm_id) {
+                if client.is_connected() {
+                    debug!(vm_id = %vm_id, "Agent already connected, reusing existing connection");
+                    return Ok(());
+                }
+            }
+        }
+        
+        // Need to connect - acquire write lock
         let mut agents = self.agent_manager.write().await;
         
-        if !agents.contains_key(vm_id) {
+        // Double-check after acquiring write lock (another task might have connected)
+        if let Some(client) = agents.get(vm_id) {
+            if client.is_connected() {
+                return Ok(());
+            }
+            // Not connected, remove the stale client
+            debug!(vm_id = %vm_id, "Removing stale agent client");
+        }
+        agents.remove(vm_id);
+        
+        // Now create a new connection
+        if true {
+            // ✅ FIX: Create telemetry channel and wire it up
+            // This allows the agent to PUSH telemetry updates instead of requiring polling
+            let (telemetry_tx, mut telemetry_rx) = tokio::sync::mpsc::channel::<TelemetryReport>(32);
+            
             let mut client = if let Some(path) = socket_path {
                 AgentClient::with_socket_path(vm_id, path)
+                    .with_telemetry_channel(telemetry_tx)
             } else {
                 AgentClient::new(vm_id)
+                    .with_telemetry_channel(telemetry_tx)
             };
             
             // Try to refresh socket path if initial path doesn't exist
@@ -839,6 +937,36 @@ impl NodeDaemonServiceImpl {
                     Ok(()) => {
                         info!(vm_id = %vm_id, "Connected to guest agent");
                         agents.insert(vm_id.to_string(), client);
+                        
+                        // Spawn a task to receive pushed telemetry and update the cache
+                        let vm_id_for_telemetry = vm_id.to_string();
+                        let agent_cache_for_telemetry = self.agent_cache.clone();
+                        tokio::spawn(async move {
+                            while let Some(telemetry) = telemetry_rx.recv().await {
+                                debug!(
+                                    vm_id = %vm_id_for_telemetry,
+                                    hostname = %telemetry.hostname,
+                                    "Received pushed telemetry from guest agent"
+                                );
+                                // Update the cache with the telemetry data
+                                let mut cache = agent_cache_for_telemetry.write().await;
+                                let entry = cache.entry(vm_id_for_telemetry.clone()).or_default();
+                                entry.connected = true;
+                                entry.hostname = telemetry.hostname.clone();
+                                entry.last_telemetry = Some(telemetry.clone());
+                                entry.last_seen = Some(std::time::Instant::now());
+                                
+                                // Extract IPs from interfaces
+                                let mut ips = Vec::new();
+                                for iface in &telemetry.interfaces {
+                                    ips.extend(iface.ipv4_addresses.clone());
+                                }
+                                if !ips.is_empty() {
+                                    entry.ip_addresses = ips;
+                                }
+                            }
+                            debug!(vm_id = %vm_id_for_telemetry, "Telemetry receiver task ended");
+                        });
                     }
                     Err(e) => {
                         debug!(vm_id = %vm_id, error = %e, "Failed to connect to guest agent");
@@ -2197,10 +2325,25 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         
         let req = request.into_inner();
         
-        let snapshot = self.hypervisor.create_snapshot(&req.vm_id, &req.name, &req.description, req.disk_only).await
+        // Convert proto request to snapshot options
+        // disk_only is the inverse of include_memory
+        let options = limiquantix_hypervisor::types::CreateSnapshotOptions {
+            name: req.name,
+            description: req.description,
+            include_memory: !req.disk_only,
+            live: !req.disk_only, // Use live mode when including memory
+            quiesce: req.quiesce,
+        };
+        
+        let snapshot = self.hypervisor.create_snapshot(&req.vm_id, &options).await
             .map_err(|e| Status::internal(e.to_string()))?;
         
-        info!(snapshot_id = %snapshot.id, "Snapshot created");
+        info!(
+            snapshot_id = %snapshot.id,
+            snapshot_type = ?snapshot.snapshot_type,
+            memory_included = %snapshot.memory_included,
+            "Snapshot created"
+        );
         
         Ok(Response::new(SnapshotResponse {
             snapshot_id: snapshot.id,

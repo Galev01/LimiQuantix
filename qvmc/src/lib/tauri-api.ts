@@ -15,14 +15,6 @@ export interface SavedConnection {
   thumbnail?: string;
 }
 
-export interface ConsoleInfoResponse {
-  consoleType?: string;
-  host: string;
-  port: number;
-  password?: string;
-  websocketUrl?: string;
-}
-
 export interface DisplaySettings {
   scale_viewport: boolean;
   show_remote_cursor: boolean;
@@ -93,13 +85,25 @@ export async function saveConfig(config: Config): Promise<void> {
 }
 
 /**
- * Get console info (including password) from Control Plane
+ * Console info from Control Plane
+ */
+export interface ConsoleInfo {
+  consoleType: string | null;
+  host: string;
+  port: number;
+  password: string | null;
+  websocketUrl: string | null;
+}
+
+/**
+ * Get console info from the Control Plane
+ * This fetches VNC connection details including the password
  */
 export async function getConsoleInfo(
   controlPlaneUrl: string,
   vmId: string
-): Promise<ConsoleInfoResponse> {
-  return await invoke<ConsoleInfoResponse>('get_console_info', {
+): Promise<ConsoleInfo> {
+  return await invoke<ConsoleInfo>('get_console_info_cmd', {
     controlPlaneUrl,
     vmId,
   });

@@ -3352,7 +3352,7 @@ struct AgentDiskUsageResponse {
 
 /// Latest agent version - fetched from update server or cached
 /// TODO: In production, this should be fetched from the update server dynamically
-const LATEST_AGENT_VERSION: &str = "0.1.0";
+const LATEST_AGENT_VERSION: &str = "0.1.27";
 
 /// Find the agent socket in libvirt's standard channel paths
 /// Returns the socket path if found, None otherwise
@@ -3463,6 +3463,47 @@ async fn get_agent_socket_from_virsh(vm_name: &str) -> Option<std::path::PathBuf
     
     info!(vm = %vm_name, "No agent channel found in VM XML (checked org.quantix and org.limiquantix)");
     None
+}
+
+/// Discover the agent socket path and connect to the agent.
+/// 
+/// This function implements robust socket discovery by:
+/// 1. Checking our primary socket path (/var/run/quantix-kvm/vms/{vm_id}.agent.sock)
+/// 2. Checking libvirt's standard channel paths
+/// 3. Parsing virsh XML to find the actual configured socket path
+/// 
+/// Returns Ok(()) if connection succeeded, Err with details if not.
+async fn discover_and_connect_agent(
+    state: &Arc<AppState>,
+    vm_id: &str,
+    vm_name: &str,
+) -> Result<(), String> {
+    // Check multiple possible socket paths
+    let primary_socket_path = format!("/var/run/quantix-kvm/vms/{}.agent.sock", vm_id);
+    let primary_exists = std::path::Path::new(&primary_socket_path).exists();
+    
+    let socket_path = if primary_exists {
+        Some(std::path::PathBuf::from(&primary_socket_path))
+    } else {
+        // Try libvirt socket paths
+        if let Some(path) = find_libvirt_agent_socket(vm_id) {
+            Some(path)
+        } else {
+            // Parse virsh XML to find socket path
+            get_agent_socket_from_virsh(vm_name).await
+        }
+    };
+    
+    // Connect using discovered socket path
+    let connect_result = if let Some(ref path) = socket_path {
+        debug!(vm_id = %vm_id, socket = %path.display(), "Connecting with discovered socket");
+        state.service.get_agent_client_with_socket(vm_id, Some(path.clone())).await
+    } else {
+        debug!(vm_id = %vm_id, "Connecting with default socket discovery");
+        state.service.get_agent_client(vm_id).await
+    };
+    
+    connect_result.map_err(|e| format!("{}", e))
 }
 
 /// Build a disconnected response with all fields set to defaults
@@ -4245,8 +4286,8 @@ async fn refresh_quantix_agent(
         )));
     }
     
-    // Try to get an agent client and request fresh telemetry
-    if let Err(e) = state.service.get_agent_client(&vm.id).await {
+    // Discover socket path and connect to agent (robust socket discovery)
+    if let Err(e) = discover_and_connect_agent(&state, &vm.id, &vm.name).await {
         warn!(vm_id = %vm_id, error = %e, "Failed to get agent client");
         return Ok(Json(build_disconnected_response(
             Some(format!("Failed to connect to agent: {}", e))
@@ -4442,18 +4483,29 @@ async fn mount_agent_iso(
             
             match reqwest::get(&url).await {
                 Ok(response) if response.status().is_success() => {
-                    // Save the ISO locally
-                    let target_path = "/data/share/quantix-agent/quantix-kvm-agent-tools.iso";
-                    if let Err(e) = tokio::fs::create_dir_all("/data/share/quantix-agent").await {
+                    // Get version from response header (sent by update server)
+                    // Clone to owned String to avoid borrow conflict with response.bytes()
+                    let version = response
+                        .headers()
+                        .get("X-ISO-Version")
+                        .and_then(|v| v.to_str().ok())
+                        .unwrap_or("latest")
+                        .to_string();
+                    
+                    // Save the ISO with versioned filename so we can track versions
+                    let target_dir = "/data/share/quantix-agent";
+                    let target_path = format!("{}/quantix-kvm-agent-tools-{}.iso", target_dir, version);
+                    
+                    if let Err(e) = tokio::fs::create_dir_all(target_dir).await {
                         warn!(error = %e, "Failed to create directory for agent ISO");
                     }
                     
                     if let Ok(bytes) = response.bytes().await {
-                        if let Err(e) = tokio::fs::write(target_path, &bytes).await {
+                        if let Err(e) = tokio::fs::write(&target_path, &bytes).await {
                             warn!(error = %e, "Failed to save agent ISO");
                         } else {
-                            iso_path = Some(target_path.to_string());
-                            info!(path = %target_path, size = bytes.len(), "Downloaded and saved agent tools ISO");
+                            iso_path = Some(target_path.clone());
+                            info!(path = %target_path, version = %version, size = bytes.len(), "Downloaded and saved agent tools ISO");
                         }
                     }
                 }
@@ -4545,19 +4597,42 @@ async fn mount_agent_iso(
             }
             Ok(result) => {
                 let stderr = String::from_utf8_lossy(&result.stderr);
-                // If attach failed because device exists, try change_media instead
+                // If attach failed because device exists, try virsh change-media with --force
                 if stderr.contains("already exists") || stderr.contains("in use") {
-                    info!(device = %cdrom_device, "Device exists, trying change_media instead");
-                    // Eject first, then insert
-                    let _ = state.service.hypervisor().change_media(&vm.id, &cdrom_device, None).await;
-                    state.service.hypervisor().change_media(&vm.id, &cdrom_device, Some(&iso_path))
-                        .await
-                        .map_err(|e| {
-                            (
+                    info!(device = %cdrom_device, "Device exists, using virsh change-media --force");
+                    
+                    // Force eject first
+                    let _ = tokio::process::Command::new("virsh")
+                        .args(["change-media", &vm.name, &cdrom_device, "--eject", "--force"])
+                        .output()
+                        .await;
+                    
+                    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                    
+                    // Force insert
+                    let insert_result = tokio::process::Command::new("virsh")
+                        .args(["change-media", &vm.name, &cdrom_device, &iso_path, "--insert", "--force"])
+                        .output()
+                        .await;
+                    
+                    match insert_result {
+                        Ok(r) if r.status.success() => {
+                            info!(device = %cdrom_device, "ISO mounted via change-media --force");
+                        }
+                        Ok(r) => {
+                            let insert_stderr = String::from_utf8_lossy(&r.stderr);
+                            return Err((
                                 StatusCode::INTERNAL_SERVER_ERROR,
-                                Json(ApiError::new("mount_failed", &format!("Failed to mount ISO: {}", e))),
-                            )
-                        })?;
+                                Json(ApiError::new("mount_failed", &format!("Failed to mount ISO: {}", insert_stderr))),
+                            ));
+                        }
+                        Err(e) => {
+                            return Err((
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                Json(ApiError::new("mount_failed", &format!("Failed to execute virsh: {}", e))),
+                            ));
+                        }
+                    }
                 } else {
                     return Err((
                         StatusCode::INTERNAL_SERVER_ERROR,
@@ -4573,26 +4648,66 @@ async fn mount_agent_iso(
             }
         }
     } else {
-        // EJECT first (if anything mounted), then insert new ISO
-        // This ensures we always replace whatever was there before
-        info!(device = %cdrom_device, "Ejecting any existing media before mounting new ISO");
-        let eject_result = state.service.hypervisor().change_media(&vm.id, &cdrom_device, None).await;
-        if let Err(e) = &eject_result {
-            debug!(error = %e, "Eject returned error (may be empty, continuing)");
+        // Use virsh change-media directly with --force flag for reliable eject+mount
+        // The libvirt API sometimes fails without force, but virsh --force always works
+        info!(device = %cdrom_device, "Force-ejecting any existing media before mounting new ISO");
+        
+        // Step 1: Force eject any existing media
+        let eject_result = tokio::process::Command::new("virsh")
+            .args(["change-media", &vm.name, &cdrom_device, "--eject", "--force"])
+            .output()
+            .await;
+        
+        match &eject_result {
+            Ok(result) => {
+                let stdout = String::from_utf8_lossy(&result.stdout);
+                let stderr = String::from_utf8_lossy(&result.stderr);
+                if result.status.success() {
+                    info!(device = %cdrom_device, "Successfully ejected existing media");
+                } else if stderr.contains("is empty") || stderr.contains("no media") {
+                    debug!(device = %cdrom_device, "CD-ROM was already empty");
+                } else {
+                    debug!(device = %cdrom_device, stderr = %stderr, stdout = %stdout, "Eject returned error (continuing anyway)");
+                }
+            }
+            Err(e) => {
+                debug!(error = %e, "Eject command failed (continuing anyway)");
+            }
         }
         
         // Small delay to ensure eject completes
-        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
         
-        // Now mount the new ISO
-        state.service.hypervisor().change_media(&vm.id, &cdrom_device, Some(&iso_path))
-            .await
-            .map_err(|e| {
-                (
+        // Step 2: Force insert the new ISO
+        let insert_result = tokio::process::Command::new("virsh")
+            .args(["change-media", &vm.name, &cdrom_device, &iso_path, "--insert", "--force"])
+            .output()
+            .await;
+        
+        match insert_result {
+            Ok(result) if result.status.success() => {
+                info!(device = %cdrom_device, iso_path = %iso_path, "Successfully inserted ISO media");
+            }
+            Ok(result) => {
+                let stderr = String::from_utf8_lossy(&result.stderr);
+                // If insert failed, try the libvirt API as fallback
+                warn!(stderr = %stderr, "virsh insert failed, trying libvirt API fallback");
+                state.service.hypervisor().change_media(&vm.id, &cdrom_device, Some(&iso_path))
+                    .await
+                    .map_err(|e| {
+                        (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ApiError::new("mount_failed", &format!("Failed to mount ISO: {} (virsh error: {})", e, stderr))),
+                        )
+                    })?;
+            }
+            Err(e) => {
+                return Err((
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ApiError::new("mount_failed", &format!("Failed to mount ISO: {}", e))),
-                )
-            })?;
+                    Json(ApiError::new("mount_failed", &format!("Failed to execute virsh: {}", e))),
+                ));
+            }
+        }
     }
     
     info!(vm_id = %vm_id, device = %cdrom_device, "Agent Tools ISO mounted successfully");
@@ -4735,8 +4850,8 @@ async fn get_agent_logs(
         }));
     }
     
-    // Get agent client and execute journalctl
-    if let Err(e) = state.service.get_agent_client(&vm.id).await {
+    // Discover socket path and connect to agent (robust socket discovery)
+    if let Err(e) = discover_and_connect_agent(&state, &vm.id, &vm.name).await {
         return Ok(Json(AgentLogsResponse {
             success: false,
             lines: vec![],
@@ -4819,8 +4934,8 @@ async fn agent_shutdown(
         }));
     }
     
-    // Get agent client and request shutdown
-    if let Err(e) = state.service.get_agent_client(&vm.id).await {
+    // Discover socket path and connect to agent (robust socket discovery)
+    if let Err(e) = discover_and_connect_agent(&state, &vm.id, &vm.name).await {
         return Ok(Json(AgentShutdownResponse {
             success: false,
             message: "Failed to connect to agent".to_string(),
@@ -4895,8 +5010,8 @@ async fn agent_reboot(
         }));
     }
     
-    // Get agent client and request reboot
-    if let Err(e) = state.service.get_agent_client(&vm.id).await {
+    // Discover socket path and connect to agent (robust socket discovery)
+    if let Err(e) = discover_and_connect_agent(&state, &vm.id, &vm.name).await {
         return Ok(Json(AgentShutdownResponse {
             success: false,
             message: "Failed to connect to agent".to_string(),
@@ -5017,8 +5132,8 @@ async fn list_guest_files(
         }));
     }
     
-    // Get agent client and list directory
-    if let Err(e) = state.service.get_agent_client(&vm.id).await {
+    // Discover socket path and connect to agent (robust socket discovery)
+    if let Err(e) = discover_and_connect_agent(&state, &vm.id, &vm.name).await {
         return Ok(Json(ListFilesResponse {
             success: false,
             path: params.path,
@@ -5134,8 +5249,8 @@ async fn read_guest_file(
         }));
     }
     
-    // Get agent client and read file
-    if let Err(e) = state.service.get_agent_client(&vm.id).await {
+    // Discover socket path and connect to agent (robust socket discovery)
+    if let Err(e) = discover_and_connect_agent(&state, &vm.id, &vm.name).await {
         return Ok(Json(ReadFileResponse {
             success: false,
             path: params.path,
@@ -5261,8 +5376,8 @@ async fn execute_in_guest(
         }));
     }
     
-    // Get agent client and execute command
-    if let Err(e) = state.service.get_agent_client(&vm.id).await {
+    // Discover socket path and connect to agent (robust socket discovery)
+    if let Err(e) = discover_and_connect_agent(&state, &vm.id, &vm.name).await {
         return Ok(Json(ExecuteCommandResponse {
             success: false,
             exit_code: -1,
@@ -6340,6 +6455,13 @@ async fn list_snapshots(
 }
 
 /// POST /api/v1/vms/:vm_id/snapshots - Create a snapshot
+/// 
+/// Supports two snapshot modes:
+/// 1. **Disk-only** (include_memory=false, default): Internal snapshot, fast, works with any CPU config
+/// 2. **With memory** (include_memory=true): External snapshot with --live flag, captures memory state
+///    - Works with host-passthrough CPU (VMware vCenter-like live snapshots)
+///    - VM keeps running during snapshot capture
+///    - Memory state saved to separate file
 async fn create_snapshot(
     State(state): State<Arc<AppState>>,
     Path(vm_id): Path<String>,
@@ -6348,9 +6470,20 @@ async fn create_snapshot(
     use tonic::Request;
     use limiquantix_proto::{NodeDaemonService, CreateSnapshotRequest as ProtoRequest};
 
+    let include_memory = request.include_memory.unwrap_or(false);
+    
+    info!(
+        vm_id = %vm_id,
+        name = %request.name,
+        include_memory = %include_memory,
+        quiesce = ?request.quiesce,
+        "Creating snapshot via HTTP API"
+    );
+
     // disk_only is the inverse of include_memory
-    // If include_memory is false or not specified, we do disk-only snapshot (safer, works with invtsc)
-    let disk_only = !request.include_memory.unwrap_or(false);
+    // When include_memory=true, we use external snapshots with --live flag
+    // which works with host-passthrough CPU (unlike internal memory snapshots)
+    let disk_only = !include_memory;
 
     let proto_request = ProtoRequest {
         vm_id: vm_id.clone(),
@@ -6363,6 +6496,12 @@ async fn create_snapshot(
     match state.service.create_snapshot(Request::new(proto_request)).await {
         Ok(response) => {
             let s = response.into_inner();
+            info!(
+                vm_id = %vm_id,
+                snapshot_id = %s.snapshot_id,
+                include_memory = %include_memory,
+                "Snapshot created successfully"
+            );
             Ok(Json(SnapshotResponse {
                 snapshot_id: s.snapshot_id,
                 name: s.name,
@@ -6377,7 +6516,7 @@ async fn create_snapshot(
             }))
         }
         Err(e) => {
-            error!(error = %e, vm_id = %vm_id, "Failed to create snapshot");
+            error!(error = %e, vm_id = %vm_id, include_memory = %include_memory, "Failed to create snapshot");
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiError::new("create_snapshot_failed", &e.message())),

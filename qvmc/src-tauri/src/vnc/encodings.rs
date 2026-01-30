@@ -1,6 +1,4 @@
-#![allow(dead_code)]
 //! VNC Encoding Implementations
-
 //!
 //! This module contains decoders for various VNC encodings:
 //! - Raw (0): Uncompressed pixel data

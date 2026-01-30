@@ -40,6 +40,83 @@
 
 ---
 
+## ISO Distribution (Agent Tools)
+
+The Update Server also hosts the Agent Tools ISO for installing the guest agent in VMs.
+
+### Overview
+
+| Artifact | Description | Publish Script | Consumers |
+|----------|-------------|----------------|-----------|
+| Agent Tools ISO | VM guest agent installer | `scripts/publish-agent-iso.sh` | VMs, Users |
+
+### Storage Structure
+
+```
+/data/releases/
+├── iso/
+│   ├── quantix-kvm-agent-tools-0.1.5.iso
+│   ├── quantix-kvm-agent-tools-0.1.5.iso.sha256
+│   ├── quantix-kvm-agent-tools-0.1.4.iso
+│   └── ...
+├── quantix-os/
+│   └── ...
+└── quantix-vdc/
+    └── ...
+```
+
+### ISO API Endpoints
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/v1/agent/iso` | GET | No | Download latest ISO directly (used by QHCI hosts) |
+| `/api/v1/iso/latest` | GET | No | Get latest ISO metadata (JSON) |
+| `/api/v1/iso/list` | GET | No | List all available ISOs (JSON array) |
+| `/api/v1/iso/download/:filename` | GET | No | Download specific ISO file |
+| `/api/v1/iso/publish` | POST | Yes | Upload new ISO (multipart) |
+| `/api/v1/iso/:filename` | DELETE | Yes | Delete an ISO |
+
+**Note:** The `/api/v1/agent/iso` endpoint is the primary endpoint used by QHCI hosts to automatically download the ISO when mounting to VMs. It returns the ISO file directly with an `X-ISO-Version` header.
+
+### Response Examples
+
+**GET /api/v1/iso/latest:**
+```json
+{
+  "filename": "quantix-kvm-agent-tools-0.1.5.iso",
+  "version": "0.1.5",
+  "sha256": "abc123...",
+  "size_bytes": 52428800,
+  "upload_date": "2026-01-30T12:00:00Z"
+}
+```
+
+### Publishing ISO
+
+```bash
+# Build and publish ISO
+./scripts/publish-agent-iso.sh
+
+# Publish with specific version
+./scripts/publish-agent-iso.sh --version 0.2.0
+
+# Publish existing ISO without rebuilding
+./scripts/publish-agent-iso.sh --no-build
+
+# Dry run (build but don't upload)
+./scripts/publish-agent-iso.sh --dry-run
+```
+
+### ISO Contents
+
+The Agent Tools ISO contains:
+- Static Linux binaries (amd64/arm64)
+- DEB packages for Debian/Ubuntu
+- RPM packages for RHEL/CentOS/Fedora
+- Universal `install.sh` script
+
+---
+
 ## Component Mappings
 
 ### Quantix-OS (QHCI) Components
@@ -164,6 +241,8 @@ export PUBLISH_TOKEN="dev-token"
 |------|----------------|
 | `scripts/publish-vdc-update.sh` | Build and publish QvDC updates |
 | `scripts/publish-update.sh` | Build and publish Quantix-OS updates |
+| `scripts/publish-agent-iso.sh` | Build and publish Agent Tools ISO |
+| `scripts/build-agent-iso.sh` | Build Agent Tools ISO (called by publish script) |
 
 ---
 
@@ -401,4 +480,6 @@ Previous sudo run left root-owned files.
 - Docs: `/docs/updates/000085-update-mechanism-fixes.md`
 - Handler: `/backend/internal/server/update_handler.go`
 - Service: `/backend/internal/services/update/service.go`
-- Scripts: `/scripts/publish-vdc-update.sh`, `/scripts/publish-update.sh`
+- Scripts: `/scripts/publish-vdc-update.sh`, `/scripts/publish-update.sh`, `/scripts/publish-agent-iso.sh`
+- ISO Build: `/scripts/build-agent-iso.sh`
+- Update Server: `/update-server/main.go` (ISO handlers: `handleISOLatest`, `handleISOList`, `handleISODownload`, `handleISOPublish`)

@@ -132,7 +132,7 @@ async fn do_download(
     tracker.update(0, window);
 
     // Send request
-    let client = crate::api::create_insecure_client().map_err(|e| e.to_string())?;
+    let client = reqwest::Client::new();
     let response = client
         .post(&url)
         .header("Content-Type", "application/json")
@@ -210,7 +210,7 @@ async fn stat_remote_file(
         urlencoding::encode(path)
     );
 
-    let client = crate::api::create_insecure_client().map_err(|e| e.to_string())?;
+    let client = reqwest::Client::new();
     let response = client
         .get(&url)
         .send()
@@ -243,7 +243,7 @@ pub async fn list_files_in_vm(
         urlencoding::encode(&path)
     );
 
-    let client = crate::api::create_insecure_client().map_err(|e| e.to_string())?;
+    let client = reqwest::Client::new();
     let response = client
         .get(&url)
         .send()
@@ -278,7 +278,7 @@ pub async fn delete_file_in_vm(
         urlencoding::encode(&path)
     );
 
-    let client = crate::api::create_insecure_client().map_err(|e| e.to_string())?;
+    let client = reqwest::Client::new();
     let response = client
         .delete(&url)
         .send()

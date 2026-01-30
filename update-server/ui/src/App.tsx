@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Releases from './pages/Releases';
 import Publish from './pages/Publish';
 import Settings from './pages/Settings';
+import ISOs from './pages/ISOs';
 
 function App() {
   return (
@@ -11,6 +12,7 @@ function App() {
       <Route path="/" element={<Layout />}>
         <Route index element={<Dashboard />} />
         <Route path="releases" element={<Releases />} />
+        <Route path="isos" element={<ISOs />} />
         <Route path="publish" element={<Publish />} />
         <Route path="settings" element={<Settings />} />
       </Route>

@@ -25,7 +25,7 @@ futures-util = "0.3"
 # We implement our own lightweight client
 
 # Networking
-tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
+tokio-tungstenite = "0.21"
 
 # Compression (for VNC encodings)
 flate2 = "1"
@@ -41,9 +41,6 @@ arboard = "3"
 
 # HTTP client (for Control Plane API)
 reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
-
-# Native TLS for WebSocket connections
-native-tls = "0.2"
 
 # HTTP server (for local ISO serving)
 warp = "0.3"

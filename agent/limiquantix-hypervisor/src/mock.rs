@@ -307,15 +307,18 @@ impl Hypervisor for MockBackend {
         })
     }
     
-    #[instrument(skip(self), fields(vm_id = %vm_id, snapshot_name = %name, disk_only = %disk_only))]
+    #[instrument(skip(self), fields(vm_id = %vm_id, snapshot_name = %options.name))]
     async fn create_snapshot(
         &self,
         vm_id: &str,
-        name: &str,
-        description: &str,
-        disk_only: bool,
+        options: &CreateSnapshotOptions,
     ) -> Result<SnapshotInfo> {
-        info!("Creating snapshot (disk_only={})", disk_only);
+        info!(
+            include_memory = %options.include_memory,
+            live = %options.live,
+            quiesce = %options.quiesce,
+            "Creating snapshot"
+        );
         
         let vms = self.vms.read().map_err(|_| {
             HypervisorError::Internal("Lock poisoned".to_string())
@@ -324,13 +327,24 @@ impl Hypervisor for MockBackend {
         let vm = vms.get(vm_id)
             .ok_or_else(|| HypervisorError::VmNotFound(vm_id.to_string()))?;
         
+        let is_running = vm.state == VmState::Running;
+        let use_external = options.include_memory && is_running;
+        
         let snapshot = SnapshotInfo {
             id: uuid::Uuid::new_v4().to_string(),
-            name: name.to_string(),
-            description: description.to_string(),
+            name: options.name.clone(),
+            description: options.description.clone(),
             created_at: chrono::Utc::now(),
             vm_state: vm.state,
             parent_id: None,
+            snapshot_type: if use_external { SnapshotType::External } else { SnapshotType::Internal },
+            memory_included: options.include_memory && is_running,
+            memory_file: if use_external { 
+                Some(format!("/var/lib/libvirt/snapshots/{}/{}.mem", vm_id, options.name))
+            } else { 
+                None 
+            },
+            memory_size_bytes: if use_external { Some(1024 * 1024 * 100) } else { None }, // Mock 100MB
         };
         
         drop(vms);
@@ -343,7 +357,12 @@ impl Hypervisor for MockBackend {
             .or_default()
             .push(snapshot.clone());
         
-        info!(snapshot_id = %snapshot.id, disk_only = %disk_only, "Snapshot created");
+        info!(
+            snapshot_id = %snapshot.id,
+            snapshot_type = ?snapshot.snapshot_type,
+            memory_included = %snapshot.memory_included,
+            "Snapshot created"
+        );
         Ok(snapshot)
     }
     

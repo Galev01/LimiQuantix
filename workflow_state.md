@@ -1,175 +1,67 @@
-# Workflow State
+# Live Memory Snapshots with host-passthrough CPU
 
-## Current: Guest Agent Communication Bug - SUPERVISOR FIX APPLIED
+## Status: COMPLETED ✓
 
-### Status: Code fix implemented - needs rebuild and deployment
+## Goal
+Enable VMware vCenter-like live memory snapshots for VMs using `host-passthrough` CPU mode with `invtsc` feature.
 
-### Summary
+## Problem Solved
 
-Despite successful code fixes for the "zombie connection" issue, **data still doesn't flow** between the guest agent and qx-node. Both ends connect successfully, but:
-- Guest writes timeout after 5 seconds
-- Host reads block forever
-- QEMU's virtio-serial bridge appears to not be passing data
-
-### Key Findings (January 30, 2026)
-
-#### Confirmed Working
-| Component | Status |
-|-----------|--------|
-| Guest agent binary installed | ✅ `/usr/local/bin/quantix-kvm-agent` v0.1.17 |
-| Guest systemd service | ✅ Active and running |
-| Guest device symlink | ✅ `org.quantix.agent.0 -> ../vport1p1` |
-| Host socket file | ✅ Exists at `/var/run/quantix-kvm/vms/{id}.agent.sock` |
-| Host qx-node socket connection | ✅ fd=17 ESTAB to QEMU |
-| QEMU virtio-serial channel | ✅ `state='connected'` |
-| QEMU Guest Agent (different channel) | ✅ Works perfectly |
-
-#### The Actual Problem
-| Component | Status |
-|-----------|--------|
-| Data flowing guest → QEMU | ❌ Writes timeout |
-| Data flowing QEMU → host | ❌ Socket Recv-Q always 0 |
-| Host response_handler | ⏳ Blocked on `read_exact()` |
-
-### Evidence from Logs
-
-**Guest side** (inside VM):
+When creating a snapshot with "Include memory state" on a running VM with `host-passthrough` CPU, libvirt would fail with:
 ```
-Telemetry write timed out - host may not be reading
-consecutive_failures: 40, 41, 42... 50
-ERROR: Too many consecutive write failures (50)
-Telemetry loop failed
+Memory snapshot failed due to CPU configuration
+This VM uses CPU features (invtsc) that prevent memory snapshots.
 ```
 
-**Host side** (qx-node):
-```
-Response handler started - now listening for messages
-[NO subsequent logs - blocked on read]
-Eventually: Failed to read message length (stale data corruption)
-```
+## Solution Implemented
 
-### Root Cause Hypotheses
+We implemented **external snapshots with the `--live` flag**, which is the same mechanism VMware vCenter uses for live snapshots.
 
-1. **QEMU virtio-serial bridge issue**: Data enters guest virtio ring buffer but QEMU doesn't pass it to Unix socket
-2. **Stale buffer corruption**: Old data in buffer corrupts protocol framing when qx-node connects late
-3. **Startup order sensitivity**: Guest agent must start AFTER qx-node connects
+### How It Works
 
-### Files Involved
+When `include_memory=true` is requested for a running VM:
 
-#### Guest Agent
-- `agent/limiquantix-guest-agent/src/main.rs` - telemetry_loop(), send_agent_ready()
-- `agent/limiquantix-guest-agent/src/transport.rs` - Device discovery
-- `agent/limiquantix-guest-agent/src/protocol.rs` - Message framing
+1. **External snapshot mode** is automatically selected
+2. **Disk overlay files** (qcow2) are created for each disk
+3. **Memory state** is saved to a separate file
+4. **`--live` flag** keeps the VM running during memory capture
 
-#### Host Node Daemon  
-- `agent/limiquantix-node/src/agent_client.rs` - AgentClient, response_handler()
-- `agent/limiquantix-node/src/service.rs` - Background connection manager
-
-#### Protocol
-- `agent/limiquantix-proto/proto/agent.proto` - Message definitions
-
-### Comprehensive Documentation
-
-Created: `docs/000090-guest-agent-communication-issue-analysis.md`
-
-Contains:
-- Full architecture diagram
-- All files involved with descriptions
-- Protocol specification
-- Debugging timeline
-- Diagnostic commands
-- Proposed fixes
-
-### Next Steps
-
-1. **Verify guest agent status** in VM console:
-   ```bash
-   systemctl status quantix-kvm-agent
-   journalctl -u quantix-kvm-agent -n 50 --no-pager
-   ```
-
-2. **Test correct startup order**:
-   - Stop guest agent
-   - Restart qx-node
-   - Start guest agent
-   - Check if data flows
-
-3. **Implement protocol resync** in `agent_client.rs`:
-   - Skip garbage/stale data
-   - Find valid message boundary
-
-### Fixes Applied
-
-#### Fix 1: Track response_handler liveness (Host-side - already done)
-```rust
-// Added to AgentClient
-response_handler_alive: Arc<AtomicBool>
-
-// Updated is_connected()
-pub fn is_connected(&self) -> bool {
-    self.writer.is_some() && self.response_handler_alive.load(Ordering::SeqCst)
-}
+```bash
+# What happens under the hood:
+virsh snapshot-create-as $VM snapshot-name \
+  --diskspec vda,snapshot=external,file=/var/lib/libvirt/snapshots/$VM/snapshot-name-vda.qcow2 \
+  --memspec file=/var/lib/libvirt/snapshots/$VM/snapshot-name.mem,snapshot=external \
+  --live
 ```
 
-#### Fix 2: Supervisor Loop Pattern (Guest-side - NEW Jan 30, 2026)
+## Files Modified
 
-**File:** `agent/limiquantix-guest-agent/src/main.rs`
+### Rust (Hypervisor)
+- `agent/limiquantix-hypervisor/src/types.rs` - Added `SnapshotType`, `CreateSnapshotOptions`
+- `agent/limiquantix-hypervisor/src/traits.rs` - Updated trait signature
+- `agent/limiquantix-hypervisor/src/libvirt/backend.rs` - External snapshot implementation with --live
+- `agent/limiquantix-hypervisor/src/mock.rs` - Mock backend update
 
-Implemented a **Connection Supervisor** using `tokio::select!`:
+### Rust (Node Daemon)
+- `agent/limiquantix-node/src/service.rs` - Use new snapshot options
+- `agent/limiquantix-node/src/http_server.rs` - Updated HTTP handler with logging
 
-```rust
-loop {
-    // 1. Connect
-    let transport = AgentTransport::connect_with_path(&device_path).await?;
-    
-    // 2. Setup
-    let (reader, writer) = transport.split();
-    send_agent_ready(&writer, &telemetry, &config).await?;
-    
-    // 3. Run BOTH tasks - first failure triggers reconnect
-    tokio::select! {
-        res = telemetry_loop(...) => { /* reconnect */ }
-        res = run_message_loop(...) => { /* reconnect */ }
-        _ = shutdown_signal => { break; }
-    }
-    
-    // 4. Reconnect with backoff
-    tokio::time::sleep(reconnect_delay).await;
-}
-```
+### TypeScript (Frontend)
+- `frontend/src/hooks/useSnapshots.ts` - Updated error handling
+- `quantix-host-ui/src/api/vm.ts` - Added includeMemory, quiesce params
+- `quantix-host-ui/src/hooks/useVMs.ts` - Added CreateSnapshotOptions interface
 
-**Benefits:**
-- Prevents zombie state (telemetry dies but process lives)
-- Automatic reconnection on disconnect
-- Graceful shutdown handling
-- Health state persists across reconnections
-- Exponential backoff (1s → 30s max)
+### Documentation
+- `docs/000091-live-memory-snapshots.md` - Full feature documentation
 
-#### Fix 3: Magic Header Protocol with Resync (NEW Jan 30, 2026)
+## Next Steps
 
-**Files:** 
-- `agent/limiquantix-guest-agent/src/protocol.rs`
-- `agent/limiquantix-node/src/agent_client.rs`
+1. **Deploy**: Build and deploy qx-node with snapshot changes
+2. **Test**: Create memory snapshot on running VM with host-passthrough CPU
+3. **Verify**: Check that snapshot includes memory state and can be reverted
 
-Added **Magic Header** (`QTX1` = `0x51 0x54 0x58 0x01`) to prevent deadlock:
-
-```
-┌──────────────────┬──────────────────┬───────────────────────────────────┐
-│  4 bytes         │  4 bytes (BE)    │          N bytes                  │
-│  Magic: "QTX1"   │  Message Length  │          Protobuf Payload         │
-└──────────────────┴──────────────────┴───────────────────────────────────┘
-```
-
-**How it prevents deadlock:**
-1. If host connects after guest sent data → garbage bytes
-2. Old protocol: Host reads garbage as huge length → blocks forever → deadlock
-3. New protocol: Host scans for `QTX1` magic → skips garbage → finds valid message
-
-### Next Steps
-1. **Rebuild guest agent ISO**: `./scripts/build-agent-iso.sh`
-2. **Mount new ISO in VM**
-3. **Reinstall agent**: Run installer from ISO
-4. **Test** connectivity
-
----
-*Last updated: January 30, 2026 - Supervisor fix applied*
+## Log
+- **2026-01-31**: Analyzed invtsc snapshot failure
+- **2026-01-31**: Researched libvirt external snapshot mechanism
+- **2026-01-31**: Implemented external snapshots with --live flag
+- **2026-01-31**: Updated frontend hooks and documentation

@@ -36,38 +36,51 @@ export function useSnapshots(vmId: string, enabled = true) {
 /**
  * Parse snapshot error and return user-friendly message
  */
-function parseSnapshotError(error: unknown): { message: string; isInvtscError: boolean; suggestion?: string } {
+function parseSnapshotError(error: unknown): { message: string; suggestion?: string } {
   const errorMessage = error instanceof Error ? error.message : String(error);
   
-  // Check for invtsc (invariant TSC) error - prevents memory snapshots
-  if (errorMessage.includes('invtsc') || errorMessage.includes('non-migratable CPU')) {
+  // Check for quiesce/guest agent errors
+  if (errorMessage.includes('quiesce') && errorMessage.includes('agent')) {
     return {
-      message: 'Memory snapshot failed due to CPU configuration',
-      isInvtscError: true,
-      suggestion: 'This VM uses CPU features (invtsc) that prevent memory snapshots. Try: 1) Stop the VM and take a disk-only snapshot, or 2) Reconfigure the VM to use a different CPU model.',
+      message: 'Filesystem quiesce failed',
+      suggestion: 'The guest agent may not be running. Try again without the "Quiesce filesystems" option, or install/start the guest agent inside the VM.',
     };
   }
   
-  // Check for other common snapshot errors
+  // Check for VM not running
   if (errorMessage.includes('domain is not running')) {
     return {
       message: 'VM must be running for memory snapshots',
-      isInvtscError: false,
       suggestion: 'Start the VM first, or uncheck "Include memory state" to take a disk-only snapshot.',
     };
   }
   
+  // Check for disk busy
   if (errorMessage.includes('disk is busy') || errorMessage.includes('locked')) {
     return {
       message: 'Disk is currently busy',
-      isInvtscError: false,
       suggestion: 'Wait for any ongoing disk operations to complete and try again.',
+    };
+  }
+  
+  // Check for snapshot directory issues
+  if (errorMessage.includes('snapshot directory') || errorMessage.includes('permission denied')) {
+    return {
+      message: 'Snapshot storage error',
+      suggestion: 'Check that the snapshot directory exists and has proper permissions.',
+    };
+  }
+  
+  // Check for external snapshot revert issues
+  if (errorMessage.includes('revert') && errorMessage.includes('external')) {
+    return {
+      message: 'Cannot revert to external snapshot',
+      suggestion: 'External snapshots with memory may require the VM to be stopped first. Try stopping the VM and reverting again.',
     };
   }
   
   return {
     message: errorMessage,
-    isInvtscError: false,
   };
 }
 
@@ -98,7 +111,7 @@ export function useCreateSnapshot() {
         // Show detailed error with suggestion
         showError(new Error(`${parsed.message}\n\n${parsed.suggestion}`), 'Snapshot failed');
       } else {
-        showError(error, 'Failed to create snapshot');
+        showError(new Error(parsed.message), 'Failed to create snapshot');
       }
     },
   });

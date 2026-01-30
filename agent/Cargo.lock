@@ -1543,7 +1543,7 @@ checksum = "37c93d8daa9d8a012fd8ab92f088405fb202ea0b6ab73ee2482ae66af4f42091"
 
 [[package]]
 name = "limiquantix-common"
-version = "0.1.0"
+version = "0.1.27"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1553,7 +1553,7 @@ dependencies = [
 
 [[package]]
 name = "limiquantix-guest-agent"
-version = "0.1.0"
+version = "0.1.27"
 dependencies = [
  "anyhow",
  "arboard",
@@ -1586,7 +1586,7 @@ dependencies = [
 
 [[package]]
 name = "limiquantix-hypervisor"
-version = "0.1.0"
+version = "0.1.27"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1605,7 +1605,7 @@ dependencies = [
 
 [[package]]
 name = "limiquantix-node"
-version = "0.1.0"
+version = "0.1.27"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1661,7 +1661,7 @@ dependencies = [
 
 [[package]]
 name = "limiquantix-proto"
-version = "0.1.0"
+version = "0.1.27"
 dependencies = [
  "prost",
  "prost-types",
@@ -1672,7 +1672,7 @@ dependencies = [
 
 [[package]]
 name = "limiquantix-telemetry"
-version = "0.1.0"
+version = "0.1.27"
 dependencies = [
  "anyhow",
  "serde",

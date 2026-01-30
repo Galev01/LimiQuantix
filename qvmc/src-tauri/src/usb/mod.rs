@@ -1,6 +1,4 @@
-#![allow(dead_code)]
 //! USB Device Management Module
-
 //!
 //! Provides USB device enumeration and passthrough capabilities for qvmc.
 //! USB passthrough works by sending commands to the hypervisor to attach/detach
@@ -138,7 +136,7 @@ pub async fn attach_usb_device(
         request.vendor_id, request.product_id, request.vm_id
     );
 
-    let client = crate::api::create_insecure_client().map_err(|e| e.to_string())?;
+    let client = reqwest::Client::new();
     let url = format!("{}/api/vms/{}/usb/attach", control_plane_url, request.vm_id);
 
     let response = client
@@ -180,7 +178,7 @@ pub async fn detach_usb_device(
         request.vendor_id, request.product_id, request.vm_id
     );
 
-    let client = crate::api::create_insecure_client().map_err(|e| e.to_string())?;
+    let client = reqwest::Client::new();
     let url = format!("{}/api/vms/{}/usb/detach", control_plane_url, request.vm_id);
 
     let response = client

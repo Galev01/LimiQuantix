@@ -110,13 +110,26 @@ export async function listSnapshots(vmId: string): Promise<Snapshot[]> {
 
 /**
  * Create a snapshot
+ * 
+ * @param vmId - VM ID
+ * @param name - Snapshot name
+ * @param description - Optional description
+ * @param includeMemory - Include memory state (enables VMware-like live snapshots)
+ * @param quiesce - Quiesce filesystems before snapshot (requires guest agent)
  */
 export async function createSnapshot(
   vmId: string, 
   name: string, 
-  description?: string
+  description?: string,
+  includeMemory = false,
+  quiesce = false
 ): Promise<Snapshot> {
-  return post<Snapshot>(`/vms/${vmId}/snapshots`, { name, description });
+  return post<Snapshot>(`/vms/${vmId}/snapshots`, { 
+    name, 
+    description,
+    includeMemory,
+    quiesce,
+  });
 }
 
 /**

@@ -188,6 +188,18 @@ export function useVMPowerOps() {
 }
 
 /**
+ * Snapshot creation options
+ */
+export interface CreateSnapshotOptions {
+  name: string;
+  description?: string;
+  /** Include memory state (enables VMware-like live snapshots) */
+  includeMemory?: boolean;
+  /** Quiesce filesystems before snapshot (requires guest agent) */
+  quiesce?: boolean;
+}
+
+/**
  * Hook for VM snapshot operations
  */
 export function useVMSnapshotOps(vmId: string) {
@@ -198,14 +210,23 @@ export function useVMSnapshotOps(vmId: string) {
   };
 
   const create = useMutation({
-    mutationFn: ({ name, description }: { name: string; description?: string }) =>
-      createSnapshot(vmId, name, description),
-    onSuccess: () => {
+    mutationFn: ({ name, description, includeMemory, quiesce }: CreateSnapshotOptions) =>
+      createSnapshot(vmId, name, description, includeMemory, quiesce),
+    onSuccess: (_, variables) => {
       invalidateSnapshots();
-      toast.success('Snapshot created');
+      const memoryNote = variables.includeMemory ? ' (with memory state)' : '';
+      toast.success(`Snapshot created${memoryNote}`);
     },
     onError: (error: Error) => {
-      toast.error(`Failed to create snapshot: ${error.message}`);
+      // Parse error for user-friendly messages
+      const msg = error.message;
+      if (msg.includes('quiesce') && msg.includes('agent')) {
+        toast.error('Filesystem quiesce failed - guest agent may not be running');
+      } else if (msg.includes('snapshot directory')) {
+        toast.error('Snapshot storage error - check directory permissions');
+      } else {
+        toast.error(`Failed to create snapshot: ${msg}`);
+      }
     },
   });
 
@@ -217,7 +238,12 @@ export function useVMSnapshotOps(vmId: string) {
       toast.success('Reverted to snapshot');
     },
     onError: (error: Error) => {
-      toast.error(`Failed to revert snapshot: ${error.message}`);
+      const msg = error.message;
+      if (msg.includes('external')) {
+        toast.error('External snapshots may require VM to be stopped first');
+      } else {
+        toast.error(`Failed to revert snapshot: ${msg}`);
+      }
     },
   });
 

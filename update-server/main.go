@@ -128,6 +128,12 @@ func main() {
 		}
 	}
 
+	// Create ISO directory for agent tools ISOs
+	isoDir := filepath.Join(config.ReleaseDir, "iso")
+	if err := os.MkdirAll(isoDir, 0755); err != nil {
+		log.Fatal("Failed to create ISO directory", zap.String("dir", isoDir), zap.Error(err))
+	}
+
 	// Initialize signing subsystem
 	if err := InitSigning(); err != nil {
 		log.Fatal("Failed to initialize signing", zap.Error(err))
@@ -209,6 +215,16 @@ func main() {
 	agent.Get("/linux/binary/:arch", handleAgentLinuxBinary)
 	agent.Get("/linux/deb/:arch", handleAgentLinuxDeb)
 	agent.Get("/linux/rpm/:arch", handleAgentLinuxRpm)
+	agent.Get("/iso", handleAgentISODownload) // Direct download of latest Agent Tools ISO
+
+	// ISO distribution endpoints (Agent Tools ISO for VM installation)
+	// Allows hosts and users to download the agent tools ISO
+	iso := api.Group("/iso")
+	iso.Get("/latest", handleISOLatest)
+	iso.Get("/list", handleISOList)
+	iso.Get("/download/:filename", handleISODownload)
+	iso.Post("/publish", authMiddleware, handleISOPublish)
+	iso.Delete("/:filename", authMiddleware, handleISODelete)
 
 	// Admin config endpoint
 	admin.Get("/config", handleGetConfig)
@@ -219,7 +235,7 @@ func main() {
 		// Serve static assets
 		app.Static("/assets", filepath.Join(config.UIPath, "assets"))
 		app.Static("/quantix.svg", filepath.Join(config.UIPath, "quantix.svg"))
-		
+
 		// SPA fallback - only for non-API routes
 		app.Get("/*", func(c *fiber.Ctx) error {
 			path := c.Path()
@@ -1377,4 +1393,402 @@ func handleAgentLinuxRpm(c *fiber.Ctx) error {
 	c.Set("Content-Type", "application/x-rpm")
 	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=limiquantix-guest-agent-%s.%s.rpm", version, rpmArch))
 	return c.SendFile(rpmPath)
+}
+
+// handleAgentISODownload serves the latest Agent Tools ISO directly
+// This endpoint is used by QHCI hosts to download the ISO for mounting to VMs
+// GET /api/v1/agent/iso
+func handleAgentISODownload(c *fiber.Ctx) error {
+	isoDir := filepath.Join(config.ReleaseDir, "iso")
+
+	// Find the latest ISO file
+	entries, err := os.ReadDir(isoDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{
+				"error": "No ISOs available. Publish one with: scripts/publish-agent-iso.sh",
+			})
+		}
+		log.Error("Failed to read ISO directory", zap.Error(err))
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to read ISO directory",
+		})
+	}
+
+	// Find all ISO files and sort by version (newest first)
+	var isoFiles []struct {
+		path    string
+		version string
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		filename := entry.Name()
+		if !strings.HasSuffix(filename, ".iso") {
+			continue
+		}
+		version := parseISOVersion(filename)
+		isoFiles = append(isoFiles, struct {
+			path    string
+			version string
+		}{
+			path:    filepath.Join(isoDir, filename),
+			version: version,
+		})
+	}
+
+	if len(isoFiles) == 0 {
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{
+			"error": "No ISOs available. Publish one with: scripts/publish-agent-iso.sh",
+		})
+	}
+
+	// Sort by version descending (newest first)
+	sort.Slice(isoFiles, func(i, j int) bool {
+		return compareVersions(isoFiles[i].version, isoFiles[j].version) > 0
+	})
+
+	// Serve the latest ISO
+	latestISO := isoFiles[0]
+	filename := filepath.Base(latestISO.path)
+
+	info, err := os.Stat(latestISO.path)
+	if err != nil {
+		log.Error("Failed to stat ISO file", zap.Error(err), zap.String("path", latestISO.path))
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to access ISO file",
+		})
+	}
+
+	log.Info("Serving Agent Tools ISO",
+		zap.String("filename", filename),
+		zap.String("version", latestISO.version),
+		zap.Int64("size_bytes", info.Size()),
+		zap.String("client_ip", c.IP()),
+	)
+
+	c.Set("Content-Type", "application/x-iso9660-image")
+	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	c.Set("Content-Length", fmt.Sprintf("%d", info.Size()))
+	c.Set("X-ISO-Version", latestISO.version)
+
+	return c.SendFile(latestISO.path)
+}
+
+// =============================================================================
+// ISO Distribution Handlers
+// =============================================================================
+
+// ISOInfo represents metadata about an ISO file
+type ISOInfo struct {
+	Filename   string    `json:"filename"`
+	Version    string    `json:"version"`
+	SHA256     string    `json:"sha256"`
+	SizeBytes  int64     `json:"size_bytes"`
+	UploadDate time.Time `json:"upload_date"`
+}
+
+// parseISOVersion extracts version from ISO filename
+// Expected format: quantix-kvm-agent-tools-VERSION.iso
+func parseISOVersion(filename string) string {
+	// Remove prefix and suffix
+	name := strings.TrimPrefix(filename, "quantix-kvm-agent-tools-")
+	name = strings.TrimSuffix(name, ".iso")
+	return name
+}
+
+// listISOs returns all ISO files in the iso directory sorted by version (newest first)
+func listISOs() ([]ISOInfo, error) {
+	isoDir := filepath.Join(config.ReleaseDir, "iso")
+
+	entries, err := os.ReadDir(isoDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []ISOInfo{}, nil
+		}
+		return nil, err
+	}
+
+	var isos []ISOInfo
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		filename := entry.Name()
+		if !strings.HasSuffix(filename, ".iso") {
+			continue
+		}
+
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+
+		// Read SHA256 from companion file if it exists
+		sha256Hash := ""
+		sha256Path := filepath.Join(isoDir, filename+".sha256")
+		if data, err := os.ReadFile(sha256Path); err == nil {
+			// SHA256 file format: "hash  filename" or just "hash"
+			parts := strings.Fields(string(data))
+			if len(parts) > 0 {
+				sha256Hash = parts[0]
+			}
+		}
+
+		isos = append(isos, ISOInfo{
+			Filename:   filename,
+			Version:    parseISOVersion(filename),
+			SHA256:     sha256Hash,
+			SizeBytes:  info.Size(),
+			UploadDate: info.ModTime(),
+		})
+	}
+
+	// Sort by version descending (newest first)
+	sort.Slice(isos, func(i, j int) bool {
+		return compareVersions(isos[i].Version, isos[j].Version) > 0
+	})
+
+	return isos, nil
+}
+
+// handleISOLatest returns metadata for the latest ISO
+func handleISOLatest(c *fiber.Ctx) error {
+	isos, err := listISOs()
+	if err != nil {
+		log.Error("Failed to list ISOs", zap.Error(err))
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to list ISOs",
+		})
+	}
+
+	if len(isos) == 0 {
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{
+			"error": "No ISOs available",
+		})
+	}
+
+	return c.JSON(isos[0])
+}
+
+// handleISOList returns a list of all available ISOs
+func handleISOList(c *fiber.Ctx) error {
+	isos, err := listISOs()
+	if err != nil {
+		log.Error("Failed to list ISOs", zap.Error(err))
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to list ISOs",
+		})
+	}
+
+	// Return empty array instead of null
+	if isos == nil {
+		isos = []ISOInfo{}
+	}
+
+	return c.JSON(isos)
+}
+
+// handleISODownload serves an ISO file for download
+func handleISODownload(c *fiber.Ctx) error {
+	filename := c.Params("filename")
+
+	// Sanitize filename to prevent path traversal
+	filename = filepath.Base(filename)
+
+	// Validate it's an ISO file
+	if !strings.HasSuffix(filename, ".iso") {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid file type. Must be an .iso file",
+		})
+	}
+
+	isoPath := filepath.Join(config.ReleaseDir, "iso", filename)
+
+	// Check if file exists
+	info, err := os.Stat(isoPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return c.Status(http.StatusNotFound).JSON(fiber.Map{
+				"error":    "ISO not found",
+				"filename": filename,
+			})
+		}
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to access ISO file",
+		})
+	}
+
+	// Set headers for download
+	c.Set("Content-Type", "application/x-iso9660-image")
+	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	c.Set("Content-Length", fmt.Sprintf("%d", info.Size()))
+
+	log.Info("Serving ISO download",
+		zap.String("filename", filename),
+		zap.Int64("size_bytes", info.Size()),
+		zap.String("client_ip", c.IP()),
+	)
+
+	return c.SendFile(isoPath)
+}
+
+// handleISOPublish handles ISO file uploads
+func handleISOPublish(c *fiber.Ctx) error {
+	// Parse multipart form
+	form, err := c.MultipartForm()
+	if err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid multipart form",
+		})
+	}
+
+	// Get ISO file from form
+	isoFiles := form.File["iso"]
+	if len(isoFiles) == 0 {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "Missing ISO file. Use form field 'iso'",
+		})
+	}
+
+	isoFile := isoFiles[0]
+	filename := isoFile.Filename
+
+	// Validate filename format
+	if !strings.HasSuffix(filename, ".iso") {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid file type. Must be an .iso file",
+		})
+	}
+
+	// Get version from form or parse from filename
+	version := ""
+	if versions := form.Value["version"]; len(versions) > 0 {
+		version = versions[0]
+	} else {
+		version = parseISOVersion(filename)
+	}
+
+	if version == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "Could not determine version. Provide 'version' field or use standard filename format",
+		})
+	}
+
+	// Get expected SHA256 from form (optional)
+	expectedSHA256 := ""
+	if sha256Values := form.Value["sha256"]; len(sha256Values) > 0 {
+		expectedSHA256 = sha256Values[0]
+	}
+
+	// Create ISO directory if needed
+	isoDir := filepath.Join(config.ReleaseDir, "iso")
+	if err := os.MkdirAll(isoDir, 0755); err != nil {
+		log.Error("Failed to create ISO directory", zap.Error(err))
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create ISO directory",
+		})
+	}
+
+	// Save ISO file
+	isoPath := filepath.Join(isoDir, filename)
+	if err := saveUploadedFile(isoFile, isoPath); err != nil {
+		log.Error("Failed to save ISO file", zap.Error(err))
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to save ISO file",
+		})
+	}
+
+	// Calculate SHA256
+	actualSHA256, err := calculateSHA256(isoPath)
+	if err != nil {
+		os.Remove(isoPath)
+		log.Error("Failed to calculate ISO hash", zap.Error(err))
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to calculate ISO hash",
+		})
+	}
+
+	// Verify SHA256 if provided
+	if expectedSHA256 != "" && actualSHA256 != expectedSHA256 {
+		os.Remove(isoPath)
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error":    "SHA256 hash mismatch",
+			"expected": expectedSHA256,
+			"actual":   actualSHA256,
+		})
+	}
+
+	// Save SHA256 file
+	sha256Path := isoPath + ".sha256"
+	sha256Content := fmt.Sprintf("%s  %s\n", actualSHA256, filename)
+	if err := os.WriteFile(sha256Path, []byte(sha256Content), 0644); err != nil {
+		log.Warn("Failed to write SHA256 file", zap.Error(err))
+		// Not a fatal error, continue
+	}
+
+	// Get file info
+	info, _ := os.Stat(isoPath)
+
+	log.Info("Published ISO",
+		zap.String("filename", filename),
+		zap.String("version", version),
+		zap.Int64("size_bytes", info.Size()),
+		zap.String("sha256", actualSHA256),
+	)
+
+	return c.Status(http.StatusCreated).JSON(fiber.Map{
+		"status":     "published",
+		"filename":   filename,
+		"version":    version,
+		"sha256":     actualSHA256,
+		"size_bytes": info.Size(),
+	})
+}
+
+// handleISODelete deletes an ISO file
+func handleISODelete(c *fiber.Ctx) error {
+	filename := c.Params("filename")
+
+	// Sanitize filename to prevent path traversal
+	filename = filepath.Base(filename)
+
+	// Validate it's an ISO file
+	if !strings.HasSuffix(filename, ".iso") {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid file type. Must be an .iso file",
+		})
+	}
+
+	isoPath := filepath.Join(config.ReleaseDir, "iso", filename)
+	sha256Path := isoPath + ".sha256"
+
+	// Check if file exists
+	if _, err := os.Stat(isoPath); os.IsNotExist(err) {
+		return c.Status(http.StatusNotFound).JSON(fiber.Map{
+			"error":    "ISO not found",
+			"filename": filename,
+		})
+	}
+
+	// Delete ISO file
+	if err := os.Remove(isoPath); err != nil {
+		log.Error("Failed to delete ISO", zap.Error(err), zap.String("filename", filename))
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to delete ISO",
+		})
+	}
+
+	// Delete SHA256 file if it exists
+	os.Remove(sha256Path)
+
+	log.Info("Deleted ISO", zap.String("filename", filename))
+
+	return c.JSON(fiber.Map{
+		"status":   "deleted",
+		"filename": filename,
+	})
 }

@@ -523,6 +523,22 @@ pub enum ConsoleType {
     Spice,
 }
 
+/// Snapshot type - internal (inside qcow2) or external (separate files).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SnapshotType {
+    /// Internal snapshot stored inside the qcow2 image
+    Internal,
+    /// External snapshot with separate overlay files
+    External,
+}
+
+impl Default for SnapshotType {
+    fn default() -> Self {
+        Self::Internal
+    }
+}
+
 /// Snapshot information.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SnapshotInfo {
@@ -538,6 +554,31 @@ pub struct SnapshotInfo {
     pub vm_state: VmState,
     /// Parent snapshot ID (for tree structure)
     pub parent_id: Option<String>,
+    /// Snapshot type (internal or external)
+    #[serde(default)]
+    pub snapshot_type: SnapshotType,
+    /// Whether memory state is included
+    #[serde(default)]
+    pub memory_included: bool,
+    /// Path to memory file (for external snapshots with memory)
+    pub memory_file: Option<String>,
+    /// Size of memory file in bytes
+    pub memory_size_bytes: Option<u64>,
+}
+
+/// Options for creating a snapshot.
+#[derive(Debug, Clone, Default)]
+pub struct CreateSnapshotOptions {
+    /// Snapshot name
+    pub name: String,
+    /// Optional description
+    pub description: String,
+    /// Include memory state (requires external snapshot for host-passthrough CPU)
+    pub include_memory: bool,
+    /// Use live snapshot (VM keeps running during memory capture)
+    pub live: bool,
+    /// Quiesce guest filesystems before snapshot (requires guest agent)
+    pub quiesce: bool,
 }
 
 /// VM resource usage metrics.

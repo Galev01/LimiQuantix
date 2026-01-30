@@ -118,6 +118,10 @@ pub async fn run(config: Config) -> Result<()> {
         );
     }
     
+    // Initialize agent ISO paths - ensure symlinks exist for libvirt compatibility
+    // This runs on every startup to ensure paths are correct even after updates
+    init_agent_iso_paths().await;
+    
     // Collect initial telemetry
     let node_info = telemetry.collect();
     info!(
@@ -324,4 +328,92 @@ pub async fn run(config: Config) -> Result<()> {
     grpc_result.map_err(|e| anyhow::anyhow!("gRPC server error: {}", e))?;
     
     Ok(())
+}
+
+/// Initialize agent ISO paths on startup.
+/// 
+/// This ensures that:
+/// 1. Required directories exist
+/// 2. Symlinks are created for libvirt compatibility (older VM definitions may use legacy paths)
+/// 3. The newest ISO in /data/isos is always linked as the "current" version
+/// 
+/// This runs on every qx-node startup to ensure paths are correct even after updates.
+async fn init_agent_iso_paths() {
+    use std::os::unix::fs::symlink;
+    use std::path::Path;
+    
+    // Directories to create
+    let dirs = [
+        "/data/isos",
+        "/data/share/quantix-agent", 
+        "/var/lib/quantix/iso",
+    ];
+    
+    for dir in &dirs {
+        if !Path::new(dir).exists() {
+            if let Err(e) = std::fs::create_dir_all(dir) {
+                warn!(dir = %dir, error = %e, "Failed to create ISO directory");
+            } else {
+                info!(dir = %dir, "Created ISO directory");
+            }
+        }
+    }
+    
+    // Find the newest versioned ISO in /data/isos
+    let iso_dir = Path::new("/data/isos");
+    if !iso_dir.exists() {
+        return;
+    }
+    
+    let mut newest_iso: Option<(std::path::PathBuf, std::time::SystemTime)> = None;
+    
+    if let Ok(entries) = std::fs::read_dir(iso_dir) {
+        for entry in entries.filter_map(|e| e.ok()) {
+            let name = entry.file_name().to_string_lossy().to_lowercase();
+            
+            // Match versioned ISOs like quantix-kvm-agent-tools-0.1.25.iso
+            if name.starts_with("quantix-kvm-agent-tools-") && name.ends_with(".iso") && !name.contains("symlink") {
+                if let Ok(metadata) = entry.metadata() {
+                    if let Ok(modified) = metadata.modified() {
+                        if newest_iso.is_none() || modified > newest_iso.as_ref().unwrap().1 {
+                            newest_iso = Some((entry.path(), modified));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // If we found a versioned ISO, create/update symlinks
+    if let Some((newest_path, _)) = newest_iso {
+        let newest_path_str = newest_path.to_string_lossy();
+        info!(path = %newest_path_str, "Found newest agent tools ISO");
+        
+        // Create symlink chain:
+        // /data/isos/quantix-kvm-agent-tools.iso -> newest versioned ISO
+        // /var/lib/quantix/iso/quantix-agent.iso -> /data/isos/quantix-kvm-agent-tools.iso
+        
+        let symlinks = [
+            ("/data/isos/quantix-kvm-agent-tools.iso", newest_path_str.as_ref()),
+            ("/var/lib/quantix/iso/quantix-agent.iso", "/data/isos/quantix-kvm-agent-tools.iso"),
+        ];
+        
+        for (link_path, target) in &symlinks {
+            let link = Path::new(link_path);
+            
+            // Remove existing symlink if it exists
+            if link.is_symlink() {
+                let _ = std::fs::remove_file(link);
+            }
+            
+            // Create new symlink
+            if let Err(e) = symlink(target, link) {
+                warn!(link = %link_path, target = %target, error = %e, "Failed to create ISO symlink");
+            } else {
+                info!(link = %link_path, target = %target, "Created ISO symlink");
+            }
+        }
+    } else {
+        info!("No versioned agent tools ISO found in /data/isos - will download on demand");
+    }
 }

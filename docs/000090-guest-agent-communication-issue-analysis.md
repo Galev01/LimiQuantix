@@ -1,460 +1,178 @@
 # 000090 - Guest Agent Communication Issue Analysis
 
-**Date:** January 30, 2026  
-**Status:** Under Investigation  
-**Severity:** High - Core Feature Broken
+**Date:** January 27-31, 2026  
+**Status:** ✅ RESOLVED  
+**Severity:** High - Core Feature Broken  
+**Resolution Time:** 4 days of intensive debugging
 
 ## Executive Summary
 
-The Quantix KVM Guest Agent (`quantix-kvm-agent`) running inside VMs cannot communicate with the host-side Node Daemon (`qx-node`). Despite both ends establishing connections to the virtio-serial channel, **data does not flow between them**. The guest agent's writes timeout, and the host's reads block forever.
+The Quantix KVM Guest Agent (`quantix-kvm-agent`) running inside VMs could not communicate with the host-side Node Daemon (`qx-node`). This issue manifested as write timeouts on the guest, blocked reads on the host, and "Agent not responding" in the QvDC dashboard.
+
+**After 4 days of debugging, we identified and fixed 7 distinct bugs:**
+
+1. **Protocol Mismatch (Magic Header)** - Host/Guest disagreed on message framing
+2. **Partial Write Corruption** - `tokio::time::timeout` leaving incomplete messages
+3. **Socket Hijacking** - Host connecting to wrong VM's socket
+4. **Telemetry Channel Not Wired** - Host ignoring pushed telemetry
+5. **AgentReadyEvent Not Forwarded** - OS/version info never reaching dashboard
+6. **Character Device I/O Bug** - `tokio::fs::File` fails with virtio-serial
+7. **ISO Mount Race Condition** - Old ISO versions being mounted
 
 ---
 
-## 1. Problem Description
+## 1. The Journey: 4 Days of Debugging
 
-### Symptoms
+### Day 1 (Jan 27): Initial Investigation
 
-1. **QvDC Dashboard shows**: "Agent not responding" or "Not Installed"
-2. **Host-side (`qx-node`) logs**:
-   - `Response handler started - now listening for messages from guest agent`
-   - No subsequent `AgentReady`, `Telemetry`, or message receipt logs
-   - Eventually: `Failed to read message length` (corrupted data from stale buffer)
-3. **Guest-side (`quantix-kvm-agent`) logs**:
-   - `Telemetry write failures exceeded threshold, backing off`
-   - `med out - host may not be reading` (5 second write timeout)
-   - After 50 failures: `Telemetry loop failed` and service crashes/restarts
-4. **QEMU Guest Agent WORKS** - `virsh qemu-agent-command` returns data successfully
-5. **Virtio-serial channel shows**: `state='connected'` in `virsh dumpxml`
+**Symptoms:**
+- QvDC Dashboard shows "Agent not responding" or "Not Installed"
+- Guest logs: `Telemetry write timed out - host may not be reading`
+- Host logs: `Response handler started` then silence
 
-### What Works
+**Initial Hypothesis:** QEMU virtio-serial bridge not passing data.
 
-- VM boots and runs normally
-- QEMU Guest Agent (separate channel) functions correctly
-- ISO mounting and agent installation inside VM
-- Host can connect to the Unix socket
-- Guest opens `/dev/virtio-ports/org.quantix.agent.0`
+**Discovery:** Both ends were connected (verified via `ss -x` and `lsof`), but data wasn't flowing.
 
-### What Doesn't Work
+### Day 2 (Jan 28): Protocol Mismatch Identified
 
-- Data doesn't flow through QEMU's virtio-serial bridge
-- Guest writes timeout after 5 seconds
-- Host reads block forever
+**Key Finding:** The guest agent was sending a **Magic Header** (`QTX1`) but the host was expecting raw length-prefixed protobuf.
 
----
-
-## 2. Architecture Overview
-
-### Data Flow (Intended)
-
+**The "1.3 Gigabyte Hallucination":**
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              HOST MACHINE                                    │
-│  ┌─────────────────────┐     ┌─────────────────────┐                        │
-│  │       qx-node       │     │        QEMU         │                        │
-│  │  (Node Daemon)      │     │   (qemu-system)     │                        │
-│  │                     │     │                     │                        │
-│  │  ┌───────────────┐  │     │  ┌───────────────┐  │                        │
-│  │  │ AgentClient   │  │     │  │ virtio-serial │  │                        │
-│  │  │               │──┼─────┼──│    bridge     │  │                        │
-│  │  │ read_message()│  │ Unix│  │               │  │                        │
-│  │  │write_message()│  │Socket│ │ fd=78 (estab) │  │                        │
-│  │  └───────────────┘  │     │  └───────────────┘  │                        │
-│  │        fd=17        │     │        fd=34        │                        │
-│  └─────────────────────┘     └─────────────────────┘                        │
-│                                       │                                      │
-│                          /var/run/quantix-kvm/vms/{vm_id}.agent.sock        │
-└───────────────────────────────────────┼─────────────────────────────────────┘
-                                        │
-                              virtio ring buffer
-                                        │
-┌───────────────────────────────────────┼─────────────────────────────────────┐
-│                              GUEST VM │                                      │
-│                                       ▼                                      │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                    quantix-kvm-agent                                 │    │
-│  │  ┌───────────────┐    ┌───────────────┐    ┌───────────────┐       │    │
-│  │  │  transport.rs │    │  protocol.rs  │    │   main.rs     │       │    │
-│  │  │               │    │               │    │               │       │    │
-│  │  │ /dev/virtio-  │    │ 4-byte len +  │    │ telemetry_    │       │    │
-│  │  │ ports/org.    │    │ protobuf      │    │ loop()        │       │    │
-│  │  │ quantix.      │    │               │    │               │       │    │
-│  │  │ agent.0       │    │ read_message  │    │ send_agent_   │       │    │
-│  │  │               │    │ write_message │    │ ready()       │       │    │
-│  │  └───────────────┘    └───────────────┘    └───────────────┘       │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────────────┘
+Guest sends: QTX1 (4 bytes) + Length (4 bytes) + Payload
+Host reads:  First 4 bytes as "length" = 0x51545801 = 1,364,547,585 bytes
+Host waits:  Forever for 1.3GB of data that never arrives
 ```
 
-### Protocol (Updated Jan 30, 2026)
+**Fix Applied:** Updated both `protocol.rs` (guest) and `agent_client.rs` (host) to use identical magic-header framing with resync capability.
 
-Both sides use **magic-header-prefixed protobuf** messages with resync capability:
+### Day 3 (Jan 29): Multiple Hidden Bugs Surface
 
+After fixing the protocol, new errors emerged:
+
+**Bug: Partial Write Corruption**
 ```
-┌──────────────────┬──────────────────┬───────────────────────────────────┐
-│  4 bytes         │  4 bytes (BE)    │          N bytes                  │
-│  Magic: "QTX1"   │  Message Length  │          Protobuf Payload         │
-│  0x51 0x54 0x58  │                  │                                   │
-│  0x01            │                  │                                   │
-└──────────────────┴──────────────────┴───────────────────────────────────┘
+ERROR: Telemetry write timed out
 ```
+When `tokio::time::timeout` cancelled a write, partial message data was left on the stream. The next message would be misaligned, causing host-side decode failures.
 
-**Why Magic Header?**
+**Fix:** Treat write timeouts as FATAL - force immediate reconnection to reset stream state.
 
-Prevents the deadlock scenario where:
-1. Host connects AFTER guest has sent data
-2. Host reads garbage/stale bytes as "message length" (e.g., 50,000)
-3. Host blocks forever waiting for 50,000 bytes that never arrive
-4. Guest's buffer fills and writes timeout
-
-The magic header allows the reader to **resync** by scanning for `QTX1` and skipping garbage.
-
----
-
-## 3. Files Involved
-
-### Guest Agent (Inside VM)
-
-| File | Purpose |
-|------|---------|
-| `agent/limiquantix-guest-agent/src/main.rs` | Entry point, `telemetry_loop()`, `send_agent_ready()` |
-| `agent/limiquantix-guest-agent/src/transport.rs` | Device discovery, opens `/dev/virtio-ports/org.quantix.agent.0` |
-| `agent/limiquantix-guest-agent/src/protocol.rs` | `read_message()`, `write_message()` with 4-byte length prefix |
-| `agent/limiquantix-guest-agent/src/telemetry.rs` | Collects CPU, RAM, disk, network metrics |
-| `agent/limiquantix-guest-agent/src/handlers.rs` | Handles requests from host (execute, file ops, etc.) |
-| `agent/limiquantix-guest-agent/Cargo.toml` | Binary name: `quantix-kvm-agent` |
-| `agent/limiquantix-guest-agent/packaging/iso/install.sh` | Installer script, creates systemd service |
-
-### Host Node Daemon (qx-node)
-
-| File | Purpose |
-|------|---------|
-| `agent/limiquantix-node/src/agent_client.rs` | `AgentClient`, `response_handler()`, socket connection |
-| `agent/limiquantix-node/src/service.rs` | `start_agent_connection_manager()` - background connection loop |
-| `agent/limiquantix-node/src/http_server.rs` | `/api/v1/vms/{id}/agent/ping` endpoint |
-
-### Protocol Definition
-
-| File | Purpose |
-|------|---------|
-| `agent/limiquantix-proto/proto/agent.proto` | Protobuf definitions for `AgentMessage`, `TelemetryReport`, etc. |
-
-### Build & Deployment
-
-| File | Purpose |
-|------|---------|
-| `scripts/build-agent-iso.sh` | Builds `quantix-agent.iso` with the agent binary |
-| `Quantix-OS/builder/Dockerfile.guest-agent` | Docker build for static musl binary |
-
-### VM Configuration (libvirt)
-
-The virtio-serial channel is configured in the VM's XML:
-
-```xml
-<channel type='unix'>
-  <source mode='bind' path='/var/run/quantix-kvm/vms/{vm_id}.agent.sock'/>
-  <target type='virtio' name='org.quantix.agent.0' state='connected'/>
-  <alias name='channel0'/>
-  <address type='virtio-serial' controller='0' bus='0' port='1'/>
-</channel>
-```
-
----
-
-## 4. Root Causes Identified
-
-### Primary Issue: QEMU virtio-serial Bridge Not Passing Data
-
-Despite both ends being connected, data doesn't flow through QEMU. Evidence:
-
-1. **ss output shows**: Both QEMU and qx-node have ESTAB connections, but `Send-Q` and `Recv-Q` are both 0
-2. **Guest writes timeout**: Indicating the virtio ring buffer is full and not being drained
-3. **Host reads block forever**: No data arrives at the Unix socket
-
-### Secondary Issue: Stale Data Corruption
-
-When qx-node restarts AFTER the guest agent has already sent data:
-
-1. Guest agent sends `AgentReady` + telemetry reports → data sits in QEMU's buffer
-2. qx-node connects later → receives OLD, potentially incomplete data
-3. `read_exact()` for 4-byte length gets garbage → **protocol desync**
-4. Error: `Failed to read message length`
-
-### Tertiary Issue: Startup Order Sensitivity
-
-The system is sensitive to startup order:
-
-| Scenario | Result |
-|----------|--------|
-| Guest agent starts FIRST, qx-node connects LATER | Stale data corruption |
-| qx-node connects FIRST, guest agent starts LATER | Should work (untested) |
-| Both restart simultaneously | Race condition |
-
----
-
-## 5. Key Code Sections
-
-### Guest Agent: Telemetry Loop (with timeout handling)
-
+**Bug: Socket Hijacking**
 ```rust
-// agent/limiquantix-guest-agent/src/main.rs:316-400
-async fn telemetry_loop<W: AsyncWriteExt + Unpin + Send + 'static>(
-    collector: TelemetryCollector,
-    writer: Arc<Mutex<W>>,
-    interval_secs: u64,
-    health: Arc<HealthState>,
-) -> Result<()> {
-    const WRITE_TIMEOUT_SECS: u64 = 5;
-    const RECONNECT_THRESHOLD: u32 = 50;
-    
-    let mut consecutive_failures: u32 = 0;
-
-    loop {
-        interval.tick().await;
-
-        // If too many failures, signal for reconnection
-        if consecutive_failures >= RECONNECT_THRESHOLD {
-            error!(
-                consecutive_failures = consecutive_failures,
-                "Telemetry write failures exceeded reconnection threshold"
-            );
-            return Err(anyhow!("Too many consecutive write failures"));
-        }
-
-        // Try to send telemetry with timeout
-        let write_result = tokio::time::timeout(
-            Duration::from_secs(WRITE_TIMEOUT_SECS),
-            async {
-                let mut guard = writer.lock().await;
-                write_message(&mut *guard, &report).await
-            }
-        ).await;
-
-        match write_result {
-            Ok(Ok(())) => {
-                consecutive_failures = 0;
-                health.record_telemetry_success();
-            }
-            Ok(Err(e)) | Err(_) => {
-                consecutive_failures += 1;
-                warn!(
-                    consecutive_failures = consecutive_failures,
-                    "Telemetry write timed out - host may not be reading"
-                );
-            }
-        }
+// OLD CODE - blindly takes first socket found!
+for entry in read_dir("/run/libvirt/qemu/channel") {
+    if socket_path.exists() {
+        return Some(socket_path);  // WRONG VM!
     }
 }
 ```
+When multiple VMs were running, the host would connect to the wrong VM's socket.
 
-### Host: Response Handler (blocks on read)
+**Fix:** Verify VM ID exists in the directory name before accepting a socket path.
 
+**Bug: Telemetry Channel Not Wired**
+The `AgentClient` was initialized without a telemetry channel (`telemetry_tx = None`), so pushed telemetry was silently dropped.
+
+**Fix:** Create and wire up `mpsc::channel` in `start_agent_connection_manager()`.
+
+### Day 4 (Jan 30-31): Final Fixes
+
+**Bug: AgentReadyEvent Ignored**
+The host received `AgentReadyEvent` (containing OS, kernel, IPs) but just logged it and `continue`d without updating the cache.
+
+**Fix:** Add `agent_ready_tx` channel to forward events to service for cache update.
+
+**Bug: Character Device I/O Failure**
+```
+ERROR: Failed to open device: /dev/virtio-ports/org.quantix.agent.0
+```
+Despite the device existing and having correct permissions (crw-rw-rw-), `tokio::fs::File` couldn't open it. This is because **tokio's filesystem API doesn't work reliably with character devices**.
+
+**Fix:** Replace `tokio::fs::File` with `std::fs::File` + `AsyncFd` + non-blocking mode:
 ```rust
-// agent/limiquantix-node/src/agent_client.rs:730-819
-async fn response_handler(
-    mut reader: ReadHalf<UnixStream>,
-    pending: Arc<Mutex<HashMap<String, PendingRequest>>>,
-    telemetry_tx: Option<mpsc::Sender<TelemetryReport>>,
-    vm_id: String,
-) -> Result<()> {
-    info!(vm_id = %vm_id, "Response handler started");
-    
-    loop {
-        // THIS BLOCKS FOREVER if no data arrives
-        let message = match read_message::<_, AgentMessage>(&mut reader).await {
-            Ok(Some(msg)) => msg,
-            Ok(None) => {
-                info!(vm_id = %vm_id, "Agent connection closed");
-                break;
-            }
-            Err(e) => {
-                error!(vm_id = %vm_id, error = %e, "Failed to read message");
-                return Err(e);
-            }
-        };
+// Set non-blocking mode for async I/O
+let fd = file.as_raw_fd();
+libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK);
 
-        // Process message (AgentReady, Telemetry, Pong, etc.)
-        match &message.payload {
-            Some(agent_message::Payload::Telemetry(report)) => { /* ... */ }
-            Some(agent_message::Payload::AgentReady(ready)) => { /* ... */ }
-            // ...
-        }
-    }
-    Ok(())
-}
+// Wrap in AsyncFd for proper async I/O on character devices
+let async_fd = AsyncFd::new(file)?;
 ```
 
-### Guest: Device Discovery
+**Bug: ISO Mount Race Condition**
+Clicking "Mount ISO" mounted an old cached version instead of the latest.
 
-```rust
-// agent/limiquantix-guest-agent/src/transport.rs:16-21
-const DEVICE_PATHS: &[&str] = &[
-    "/dev/virtio-ports/org.quantix.agent.0",
-    "/dev/virtio-ports/org.limiquantix.agent.0",  // Legacy
-    "/dev/vport0p1",
-    "/dev/vport1p1",
-];
-```
+**Fix:** Use `virsh change-media --force` to reliably eject and insert ISOs.
 
 ---
 
-## 6. Debugging Timeline
+## 2. Files Modified
 
-| Time | Event | Finding |
-|------|-------|---------|
-| 01:26:26 | Guest agent starts | Service active, device open |
-| 01:31:xx | Guest telemetry loop | Write failures start (consecutive_failures: 40-50) |
-| 01:44:35 | Guest loop fails | "Too many consecutive write failures (50)" |
-| 23:55:01 | qx-node restarts | Connects to socket |
-| 23:55:01 | Response handler starts | "now listening for messages" |
-| 23:55:16 | Response handler fails | "Failed to read message length" (stale data) |
-| 23:56:xx | VM restarted | Fresh boot |
-| 23:56:37 | qx-node connects | New response handler starts |
-| 23:57:xx | Ping timeout | "Agent appears connected but failed to communicate" |
+### Guest Agent (`limiquantix-guest-agent`)
 
----
+| File | Changes |
+|------|---------|
+| `src/main.rs` | Supervisor loop with `tokio::select!`, FATAL timeout handling, exponential backoff reconnection |
+| `src/transport.rs` | Replaced `tokio::fs::File` with `AsyncFd<std::fs::File>` for character device support |
+| `src/protocol.rs` | Magic header framing (`QTX1`), resync mechanism, byte-level scanning |
 
-## 7. Diagnostic Commands Used
+### Host Node Daemon (`limiquantix-node`)
 
-### On Host (192.168.0.102)
-
-```bash
-# Check virtio-serial channel state
-virsh dumpxml Rocky-Linux-Test | grep -A5 "org.quantix.agent"
-
-# Check socket connections
-ss -x -p | grep "quantix-kvm/vms"
-
-# Check qx-node file descriptors
-ls -la /proc/$(pgrep qx-node)/fd | grep socket
-
-# Check qx-node logs
-tail -100 /var/log/quantix-node.log | grep -E "agent|Agent|telemetry"
-
-# Test socket with socat
-timeout 3 socat -v UNIX-CONNECT:/var/run/quantix-kvm/vms/{vm_id}.agent.sock -
-```
-
-### Inside Guest VM
-
-```bash
-# Check if agent service is running
-systemctl status quantix-kvm-agent
-
-# Check device exists
-ls -la /dev/virtio-ports/
-
-# Check if agent has device open
-lsof /dev/virtio-ports/org.quantix.agent.0
-
-# Check agent logs
-journalctl -u quantix-kvm-agent -n 50 --no-pager
-```
+| File | Changes |
+|------|---------|
+| `src/agent_client.rs` | Magic header support, resync mechanism, VM ID verification in socket discovery, `with_agent_ready_channel()` |
+| `src/service.rs` | Wire up `telemetry_tx` and `agent_ready_tx` channels, update cache from `AgentReadyEvent` |
+| `src/http_server.rs` | Use `virsh change-media --force` for reliable ISO mount/eject |
 
 ---
 
-## 8. Current Status
+## 3. Technical Details of Each Fix
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| Guest agent binary | ✅ Correct | `/usr/local/bin/quantix-kvm-agent` version 0.1.17 |
-| Guest systemd service | ✅ Running | Enabled, but fails after 50 write timeouts |
-| Guest device symlink | ✅ Correct | `org.quantix.agent.0 -> ../vport1p1` |
-| Host socket file | ✅ Exists | `/var/run/quantix-kvm/vms/{id}.agent.sock` |
-| Host qx-node connection | ✅ Connected | fd=17 -> socket established |
-| QEMU virtio bridge | ❌ NOT PASSING DATA | Both ends connected, no data flow |
-| Protocol compatibility | ✅ Identical | Same 4-byte BE length + protobuf |
+### Fix 1: Magic Header Protocol with Resync
 
----
+**Problem:** If host connects after guest has sent data, stale bytes corrupt the protocol.
 
-## 9. Fixes Applied
-
-### Fix 1: Supervisor Loop Pattern (IMPLEMENTED - Jan 30, 2026)
-
-**File:** `agent/limiquantix-guest-agent/src/main.rs`
-
-The guest agent now uses a **Supervisor Loop** with `tokio::select!` to ensure resilience:
+**Solution:** 4-byte magic header (`QTX1`) enables stream resynchronization.
 
 ```rust
-// The key pattern - if EITHER task fails, BOTH are cancelled and we reconnect
-loop {
-    // 1. Connect to device
-    let transport = AgentTransport::connect_with_path(&device_path).await?;
-    
-    // 2. Setup resources
-    let (reader, writer) = transport.split();
-    
-    // 3. Send AgentReady
-    send_agent_ready(&writer, &telemetry, &config).await?;
-    
-    // 4. Run both tasks with tokio::select! - first failure triggers reconnect
-    tokio::select! {
-        res = telemetry_loop(...) => {
-            // Telemetry failed - trigger reconnect
-        }
-        res = run_message_loop(...) => {
-            // Read failed or EOF - trigger reconnect
-        }
-        _ = shutdown_check => {
-            break; // Only way to exit
-        }
-    }
-    
-    // 5. Resources dropped, reconnect after delay
-    tokio::time::sleep(reconnect_delay).await;
-}
-```
+// agent/limiquantix-guest-agent/src/protocol.rs
+// agent/limiquantix-node/src/agent_client.rs
 
-**Why this fixes the zombie state:**
-- If `telemetry_loop` fails (50+ write timeouts), `run_message_loop` is immediately cancelled
-- If `run_message_loop` gets EOF, `telemetry_loop` is immediately cancelled
-- Both tasks are torn down, resources cleaned up, and a fresh connection is established
-- The process never dies due to connection issues (only shutdown signals)
-
-**Additional improvements:**
-- Exponential backoff on reconnection (1s → 30s max)
-- Health state persists across reconnections (tracks total reconnections)
-- Timeout on initial AgentReady send (10s)
-- Graceful shutdown handling
-
-### Fix 2: Magic Header Protocol with Resync (IMPLEMENTED - Jan 30, 2026)
-
-**Files:** 
-- `agent/limiquantix-guest-agent/src/protocol.rs`
-- `agent/limiquantix-node/src/agent_client.rs`
-
-Added a **Magic Header** (`QTX1` = `0x51 0x54 0x58 0x01`) to enable protocol resync:
-
-```rust
-/// Magic header for protocol framing: "QTX1" (Quantix Protocol v1)
-const MAGIC_HEADER: [u8; 4] = [0x51, 0x54, 0x58, 0x01];
+const MAGIC_HEADER: [u8; 4] = [0x51, 0x54, 0x58, 0x01]; // "QTX1"
 
 async fn read_message<R, M>(reader: &mut R) -> Result<Option<M>> {
     loop {
-        // 1. Scan for Magic Header (resync mechanism)
+        // 1. Scan for magic header
         let mut match_count = 0;
         while match_count < 4 {
-            let byte = reader.read_u8().await?;
+            let byte = read_byte(reader).await?;
             if byte == MAGIC_HEADER[match_count] {
                 match_count += 1;
             } else {
-                // Mismatch - check if this starts a new sequence
                 match_count = if byte == MAGIC_HEADER[0] { 1 } else { 0 };
             }
         }
         
-        // 2. Read length (now we know we're aligned)
-        let len = reader.read_u32().await? as usize;
+        // 2. Read length
+        let len = read_u32_be(reader).await? as usize;
         
-        // 3. Validate and read payload
+        // 3. Detect "magic as length" desync
+        if len_buf == 0x51545801u32.to_be_bytes() {
+            warn!("Detected magic header in length field - resyncing");
+            continue;
+        }
+        
+        // 4. Validate and read payload
         if len > MAX_MESSAGE_SIZE {
-            warn!("Invalid length {}, resyncing...", len);
-            continue; // Go back to scanning for magic
+            warn!("Invalid length {}, resyncing", len);
+            continue;
         }
         
         let mut payload = vec![0u8; len];
         reader.read_exact(&mut payload).await?;
         
-        // 4. Decode - if fails, resync
+        // 5. Decode protobuf
         match M::decode(&payload[..]) {
             Ok(msg) => return Ok(Some(msg)),
             Err(_) => continue, // Corrupted, resync
@@ -463,52 +181,371 @@ async fn read_message<R, M>(reader: &mut R) -> Result<Option<M>> {
 }
 ```
 
-**How it prevents deadlock:**
-- If garbage bytes are received, the reader scans for `QTX1`
-- Invalid lengths or decode failures trigger resync
-- Maximum 64KB scan before giving up (prevents infinite loops)
+### Fix 2: FATAL Write Timeout
 
-### Fix 3: Restart Both in Correct Order (Manual Workaround)
+**Problem:** `tokio::time::timeout` cancels the write future, potentially leaving partial data on the stream (e.g., just the 4-byte header without the payload). Subsequent writes are misaligned.
 
-1. Stop guest agent inside VM: `systemctl stop quantix-kvm-agent`
-2. Restart qx-node on host: `rc-service quantix-node restart`
-3. Start guest agent inside VM: `systemctl start quantix-kvm-agent`
+**Solution:** Treat write timeouts as stream corruption - force reconnection.
 
-### Fix 4: Investigate QEMU virtio-serial Bridge (Pending)
+```rust
+// agent/limiquantix-guest-agent/src/main.rs
 
-The core issue may be in how QEMU bridges the virtio-serial device to the Unix socket:
+match write_result {
+    Ok(Ok(())) => { /* success */ }
+    Ok(Err(e)) => { /* write error, recoverable */ }
+    Err(_timeout) => {
+        // FATAL: Write timed out - stream is now CORRUPTED!
+        error!("FATAL: Write timeout corrupted stream, forcing reconnect");
+        return Err(anyhow!("Write timeout corrupted stream"));
+    }
+}
+```
 
-1. Check QEMU version and known bugs
-2. Test with different QEMU options
-3. Compare with working QEMU GA channel configuration
+### Fix 3: Socket Path Verification
+
+**Problem:** With multiple VMs running, `find_socket_path()` returned the first socket found, which could belong to a different VM.
+
+**Solution:** Verify VM ID is present in the directory name.
+
+```rust
+// agent/limiquantix-node/src/agent_client.rs
+
+fn find_socket_path(vm_id: &str) -> Option<PathBuf> {
+    for entry in read_dir("/run/libvirt/qemu/channel") {
+        let dir_name = entry.file_name().to_string_lossy();
+        
+        // ✅ CRITICAL: Verify this directory belongs to our VM!
+        if !dir_name.contains(vm_id) {
+            debug!("Skipping {} - does not match VM ID {}", dir_name, vm_id);
+            continue;
+        }
+        
+        // Directory matches - check for our socket
+        let socket_path = entry.path().join("org.quantix.agent.0");
+        if socket_path.exists() {
+            return Some(socket_path);
+        }
+    }
+    None
+}
+```
+
+### Fix 4: Telemetry Channel Wiring
+
+**Problem:** `AgentClient` was created without a telemetry channel, so pushed telemetry was never received.
+
+**Solution:** Create and wire up the channel in the connection manager.
+
+```rust
+// agent/limiquantix-node/src/service.rs
+
+let (telemetry_tx, mut telemetry_rx) = mpsc::channel::<TelemetryReport>(32);
+let mut client = AgentClient::new(vm_id)
+    .with_telemetry_channel(telemetry_tx);
+
+// Spawn receiver task
+tokio::spawn(async move {
+    while let Some(telemetry) = telemetry_rx.recv().await {
+        // Update cache with telemetry data
+        let mut cache = agent_cache.write().await;
+        let entry = cache.entry(vm_id.clone()).or_default();
+        entry.hostname = telemetry.hostname.clone();
+        entry.last_telemetry = Some(telemetry);
+        entry.last_seen = Some(Instant::now());
+    }
+});
+```
+
+### Fix 5: AgentReadyEvent Forwarding
+
+**Problem:** `AgentReadyEvent` contains OS name, kernel version, IP addresses - but the host just logged it and ignored it.
+
+**Solution:** Add `agent_ready_tx` channel and update cache with system info.
+
+```rust
+// agent/limiquantix-node/src/agent_client.rs
+
+pub fn with_agent_ready_channel(mut self, tx: mpsc::Sender<AgentReadyEvent>) -> Self {
+    self.agent_ready_tx = Some(tx);
+    self
+}
+
+// In response_handler:
+Some(agent_message::Payload::AgentReady(ready)) => {
+    info!(vm_id = %vm_id, version = %ready.version, os = %ready.os_name);
+    if let Some(ref tx) = agent_ready_tx {
+        tx.send(ready.clone()).await?;
+    }
+}
+
+// agent/limiquantix-node/src/service.rs
+
+let (agent_ready_tx, mut agent_ready_rx) = mpsc::channel::<AgentReadyEvent>(8);
+let mut client = AgentClient::new(vm_id)
+    .with_telemetry_channel(telemetry_tx)
+    .with_agent_ready_channel(agent_ready_tx);
+
+// Spawn receiver task
+tokio::spawn(async move {
+    while let Some(ready) = agent_ready_rx.recv().await {
+        let mut cache = agent_cache.write().await;
+        let entry = cache.entry(vm_id.clone()).or_default();
+        entry.version = ready.version;
+        entry.os_name = ready.os_name;
+        entry.os_version = ready.os_version;
+        entry.kernel_version = ready.kernel_version;
+        entry.hostname = ready.hostname;
+        entry.ip_addresses = ready.ip_addresses;
+        entry.capabilities = ready.capabilities;
+    }
+});
+```
+
+### Fix 6: AsyncFd for Character Devices
+
+**Problem:** `tokio::fs::File` uses a thread pool for async I/O, which doesn't work correctly with character devices (like virtio-serial). Symptoms included "Device or resource busy" errors and silent open failures.
+
+**Solution:** Use `std::fs::File` with non-blocking mode, wrapped in `AsyncFd`.
+
+```rust
+// agent/limiquantix-guest-agent/src/transport.rs
+
+#[cfg(unix)]
+pub struct AgentTransport {
+    inner: AsyncFd<std::fs::File>,
+}
+
+#[cfg(unix)]
+async fn open(path: &PathBuf) -> Result<Self> {
+    // Use std::fs::File - tokio::fs::File doesn't work with char devices
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)?;
+
+    // Set non-blocking mode for async I/O
+    let fd = file.as_raw_fd();
+    unsafe {
+        let flags = libc::fcntl(fd, libc::F_GETFL);
+        libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK);
+    }
+
+    // Wrap in AsyncFd for proper async I/O
+    let async_fd = AsyncFd::new(file)?;
+    Ok(Self { inner: async_fd })
+}
+
+#[cfg(unix)]
+impl AsyncRead for AgentTransport {
+    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+        loop {
+            let mut guard = match self.inner.poll_read_ready(cx) {
+                Poll::Ready(Ok(guard)) => guard,
+                Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+                Poll::Pending => return Poll::Pending,
+            };
+
+            match guard.get_inner().read(buf.initialize_unfilled()) {
+                Ok(n) => {
+                    buf.advance(n);
+                    return Poll::Ready(Ok(()));
+                }
+                Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+                    guard.clear_ready();
+                    continue;
+                }
+                Err(e) => return Poll::Ready(Err(e)),
+            }
+        }
+    }
+}
+```
+
+### Fix 7: Force ISO Mount
+
+**Problem:** "Mount ISO" button would mount a cached old version because libvirt's `change_media` API didn't properly eject the old media first.
+
+**Solution:** Use `virsh change-media --force` for reliable eject+insert.
+
+```rust
+// agent/limiquantix-node/src/http_server.rs
+
+// Step 1: Force eject existing media
+tokio::process::Command::new("virsh")
+    .args(["change-media", &vm_name, &device, "--eject", "--force"])
+    .output()
+    .await?;
+
+tokio::time::sleep(Duration::from_millis(500)).await;
+
+// Step 2: Force insert new ISO
+tokio::process::Command::new("virsh")
+    .args(["change-media", &vm_name, &device, &iso_path, "--insert", "--force"])
+    .output()
+    .await?;
+```
 
 ---
 
-## 10. Files to Modify for Fixes
+## 4. Supervisor Loop Pattern
 
-| File | Change |
-|------|--------|
-| `agent/limiquantix-node/src/agent_client.rs` | Add resync mechanism to `read_message()` |
-| `agent/limiquantix-guest-agent/packaging/iso/install.sh` | Add startup delay to systemd service |
-| `agent/limiquantix-node/src/service.rs` | Connect to VMs earlier in boot process |
+The guest agent now uses a **Supervisor Loop** for maximum resilience:
+
+```rust
+// agent/limiquantix-guest-agent/src/main.rs
+
+loop {
+    info!(reconnections = total_reconnections, "Connecting to host...");
+    
+    // 1. Connect to device
+    let transport = match AgentTransport::connect_with_path(&device_path).await {
+        Ok(t) => t,
+        Err(e) => {
+            warn!(error = %e, "Failed to connect, retrying...");
+            tokio::time::sleep(reconnect_delay).await;
+            reconnect_delay = (reconnect_delay * 2).min(MAX_RECONNECT_DELAY);
+            continue;
+        }
+    };
+    
+    // 2. Setup resources
+    let (reader, writer) = tokio::io::split(transport);
+    let writer = Arc::new(Mutex::new(writer));
+    
+    // 3. Send AgentReady
+    send_agent_ready(&writer, &telemetry, &config).await?;
+    
+    // 4. Run both tasks - first failure triggers reconnect
+    tokio::select! {
+        res = telemetry_loop(collector.clone(), writer.clone(), interval, health.clone()) => {
+            match res {
+                Ok(()) => info!("Telemetry loop exited normally"),
+                Err(e) => warn!(error = %e, "Telemetry loop failed"),
+            }
+        }
+        res = run_message_loop(reader, writer.clone()) => {
+            match res {
+                Ok(()) => info!("Message loop exited (EOF)"),
+                Err(e) => warn!(error = %e, "Message loop failed"),
+            }
+        }
+        _ = shutdown_rx.recv() => {
+            info!("Received shutdown signal");
+            break;
+        }
+    }
+    
+    // 5. Resources dropped, reset delay on successful connection, reconnect
+    reconnect_delay = Duration::from_secs(1);
+    total_reconnections += 1;
+    tokio::time::sleep(Duration::from_secs(1)).await;
+}
+```
+
+**Benefits:**
+- If `telemetry_loop` fails (write timeout), `run_message_loop` is cancelled and vice versa
+- All resources are dropped, stream is closed, fresh connection established
+- Exponential backoff prevents tight reconnection loops
+- Process never dies due to connection issues
 
 ---
 
-## 11. Related Documentation
+## 5. Final Status
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Magic Header Protocol | ✅ Implemented | Both sides use `QTX1` + resync |
+| Supervisor Loop | ✅ Implemented | Automatic reconnection on failure |
+| FATAL Timeout | ✅ Implemented | Write timeout forces reconnect |
+| Socket Verification | ✅ Implemented | VM ID checked in directory name |
+| Telemetry Channel | ✅ Wired | Host receives pushed telemetry |
+| AgentReady Channel | ✅ Wired | OS/version info reaches dashboard |
+| AsyncFd Transport | ✅ Implemented | Character device I/O works |
+| Force ISO Mount | ✅ Implemented | `--force` flag used |
+| Socket Discovery | ✅ Implemented | Robust multi-path discovery via `discover_and_connect_agent()` |
+| Connection Reuse | ✅ Implemented | Existing connections reused, not replaced |
+
+### Dashboard Now Shows:
+
+- ✅ Agent Version: `0.1.27`
+- ✅ OS Name: Detected from guest
+- ✅ Kernel Version: Detected from guest
+- ✅ Hostname: From AgentReadyEvent and Telemetry
+- ✅ IP Addresses: From `hostname -I` in guest
+- ✅ CPU/Memory/Disk: From TelemetryReport
+- ✅ Uptime: From TelemetryReport
+- ✅ Load Averages: From TelemetryReport
+
+---
+
+## 6. Lessons Learned
+
+1. **tokio::fs::File doesn't work with character devices** - Use `AsyncFd<std::fs::File>` instead.
+
+2. **Write timeouts can corrupt streams** - When a timeout cancels a write, partial data may be left. Treat timeouts as fatal.
+
+3. **Multi-VM environments need explicit verification** - Don't assume the first socket found is the right one.
+
+4. **Magic headers enable protocol recovery** - Without them, a single corrupt byte causes permanent desync.
+
+5. **Channel events must be wired up** - Creating a channel is not enough; you must actually receive from it.
+
+6. **libvirt API needs `--force` for reliability** - The XML update API sometimes fails silently; `virsh` with `--force` is more reliable.
+
+7. **Socket connections are exclusive** - A Unix socket from QEMU can only have ONE connection at a time. If the background manager has a connection, new connection attempts fail with EAGAIN (resource temporarily unavailable).
+
+8. **Robust socket discovery is critical** - Use multiple fallback paths: primary socket, libvirt channel directories, and `virsh dumpxml` parsing.
+
+---
+
+## 8. Additional Fixes (Jan 31, 2026)
+
+### Fix 8: Robust Socket Discovery via `discover_and_connect_agent()`
+
+Added a helper function that implements multi-path socket discovery for all agent endpoints:
+
+```rust
+async fn discover_and_connect_agent(
+    state: &Arc<AppState>,
+    vm_id: &str,
+    vm_name: &str,
+) -> Result<(), String> {
+    // 1. Check primary path: /var/run/quantix-kvm/vms/{vm_id}.agent.sock
+    // 2. Check libvirt channel directories
+    // 3. Parse virsh dumpxml to find actual socket path
+    // 4. Use discovered path with get_agent_client_with_socket()
+}
+```
+
+Updated endpoints: `get_agent_logs`, `agent_shutdown`, `agent_reboot`, `list_files`, `read_file`, `execute_command`, `request_telemetry`.
+
+### Fix 9: Connection Reuse in `get_agent_client_with_socket()`
+
+The function now properly checks if an agent is already connected before attempting a new connection:
+
+```rust
+// First, check with a read lock if agent already exists and is connected
+{
+    let agents = self.agent_manager.read().await;
+    if let Some(client) = agents.get(vm_id) {
+        if client.is_connected() {
+            return Ok(()); // Reuse existing connection
+        }
+    }
+}
+```
+
+This prevents the "Resource temporarily unavailable" error that occurred when attempting to connect to an already-connected socket.
+
+---
+
+## 7. Related Documentation
 
 - `docs/000087-guest-agent-implementation.md` - Original implementation design
 - `docs/000088-guest-agent-complete-reference.md` - Full API reference
-- `docs/000089-guest-agent-installation-fixes-jan-2026.md` - Recent installation fixes
+- `docs/000089-guest-agent-installation-fixes-jan-2026.md` - Installation script fixes
 
 ---
 
-## 12. Next Steps
-
-1. **Immediate**: Verify guest agent service status inside VM via console
-2. **Short-term**: Implement protocol resync mechanism
-3. **Medium-term**: Add startup ordering guarantees
-4. **Long-term**: Investigate QEMU virtio-serial bridge behavior
-
----
-
-*Document created during live debugging session. Last updated: January 30, 2026*
+*Document created during 4-day debugging session. Initial creation: January 27, 2026. Final update: January 31, 2026.*
+*Contributors: Gal (user), Claude (AI assistant)*

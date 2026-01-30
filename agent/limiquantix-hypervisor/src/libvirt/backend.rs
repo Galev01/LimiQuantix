@@ -487,8 +487,15 @@ impl Hypervisor for LibvirtBackend {
     }
     
     #[instrument(skip(self), fields(vm_id = %vm_id, name = %name, disk_only = %disk_only))]
-    async fn create_snapshot(&self, vm_id: &str, name: &str, description: &str, disk_only: bool) -> Result<SnapshotInfo> {
-        info!("Creating snapshot");
+    async fn create_snapshot(&self, vm_id: &str, options: &CreateSnapshotOptions) -> Result<SnapshotInfo> {
+        info!(
+            vm_id = %vm_id,
+            name = %options.name,
+            include_memory = %options.include_memory,
+            live = %options.live,
+            quiesce = %options.quiesce,
+            "Creating snapshot"
+        );
         
         // Verify the domain exists
         let domain = self.get_domain(vm_id)?;
@@ -496,27 +503,87 @@ impl Hypervisor for LibvirtBackend {
         let (state, _) = domain.get_state()
             .map_err(|e| HypervisorError::Internal(e.to_string()))?;
         
-        // Note: The virt crate v0.4 doesn't expose snapshot_create_xml directly.
-        // In production, we would use the raw libvirt C API or upgrade the virt crate.
-        // For now, return a placeholder snapshot info.
-        warn!("Snapshot creation not fully implemented in virt crate v0.4 - using virsh fallback");
+        let is_running = matches!(state, sys::VIR_DOMAIN_RUNNING);
         
-        // Use virsh snapshot-create-as command which accepts name/description directly
-        let mut args = vec!["snapshot-create-as", vm_id, "--name", name];
+        // Determine snapshot strategy:
+        // - If include_memory=true and VM is running, use external snapshot with --live
+        // - If include_memory=false, use disk-only snapshot (internal)
+        let use_external = options.include_memory && is_running;
+        
+        // Create snapshot directory for external snapshots
+        let snapshot_dir = format!("/var/lib/libvirt/snapshots/{}", vm_id);
+        if use_external {
+            std::fs::create_dir_all(&snapshot_dir)
+                .map_err(|e| HypervisorError::SnapshotFailed(format!("Failed to create snapshot directory: {}", e)))?;
+        }
+        
+        // Build memory file path for external snapshots
+        let memory_file = if use_external {
+            Some(format!("{}/{}.mem", snapshot_dir, options.name))
+        } else {
+            None
+        };
+        
+        // Build virsh command
+        // Note: The virt crate v0.4 doesn't expose snapshot_create_xml directly.
+        // Using virsh fallback for full snapshot functionality.
+        let mut args: Vec<String> = vec![
+            "snapshot-create-as".to_string(),
+            vm_id.to_string(),
+            "--name".to_string(),
+            options.name.clone(),
+        ];
         
         // Add description if not empty
-        if !description.is_empty() {
-            args.push("--description");
-            args.push(description);
+        if !options.description.is_empty() {
+            args.push("--description".to_string());
+            args.push(options.description.clone());
         }
         
-        // Add --disk-only flag if requested
-        // This is required for VMs with invtsc (invariant TSC) CPU flag or host-passthrough CPU
-        // as they cannot save memory state (non-migratable)
-        if disk_only {
-            args.push("--disk-only");
-            info!("Using disk-only snapshot mode");
+        if use_external {
+            // External snapshot with memory state (VMware vCenter-like)
+            // This works with host-passthrough CPU because we use --live flag
+            // which captures memory without requiring migration capability
+            
+            info!(
+                memory_file = %memory_file.as_ref().unwrap(),
+                "Using external snapshot with memory capture (--live mode)"
+            );
+            
+            // Get disk devices to create diskspec entries
+            let disk_devices = self.get_vm_disk_devices(vm_id)?;
+            
+            for disk in &disk_devices {
+                // Create overlay file path
+                let overlay_path = format!("{}/{}-{}.qcow2", snapshot_dir, options.name, disk);
+                args.push("--diskspec".to_string());
+                args.push(format!("{},snapshot=external,file={}", disk, overlay_path));
+            }
+            
+            // Add memory spec for external memory capture
+            args.push("--memspec".to_string());
+            args.push(format!("file={},snapshot=external", memory_file.as_ref().unwrap()));
+            
+            // Use --live flag to keep VM running during snapshot
+            // This is the key to VMware-like live snapshots
+            if options.live {
+                args.push("--live".to_string());
+            }
+        } else if !options.include_memory {
+            // Disk-only snapshot (internal) - works with any CPU configuration
+            args.push("--disk-only".to_string());
+            info!("Using disk-only snapshot mode (internal)");
         }
+        // If include_memory=true but VM is not running, create normal internal snapshot
+        // (no special flags needed, libvirt will include memory state automatically)
+        
+        // Add quiesce flag if requested (requires guest agent)
+        if options.quiesce && is_running {
+            args.push("--quiesce".to_string());
+            info!("Filesystem quiesce requested");
+        }
+        
+        debug!(args = ?args, "Running virsh snapshot-create-as");
         
         let output = std::process::Command::new("virsh")
             .args(&args)
@@ -525,19 +592,98 @@ impl Hypervisor for LibvirtBackend {
         
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(HypervisorError::SnapshotFailed(format!("virsh snapshot-create-as failed: {}", stderr)));
+            
+            // Provide helpful error messages for common failures
+            let error_msg = if stderr.contains("invtsc") || stderr.contains("non-migratable") {
+                // This shouldn't happen with external snapshots, but just in case
+                format!(
+                    "Memory snapshot failed due to CPU configuration. \
+                    The VM uses host-passthrough CPU which normally prevents memory snapshots. \
+                    Try using external snapshot mode (include_memory=true with live=true). \
+                    Original error: {}", 
+                    stderr
+                )
+            } else if stderr.contains("quiesce") && stderr.contains("agent") {
+                format!(
+                    "Filesystem quiesce failed - guest agent may not be running. \
+                    Try again without quiesce option. Original error: {}", 
+                    stderr
+                )
+            } else {
+                format!("virsh snapshot-create-as failed: {}", stderr)
+            };
+            
+            return Err(HypervisorError::SnapshotFailed(error_msg));
         }
         
-        info!(snapshot = %name, disk_only = %disk_only, "Snapshot created via virsh");
+        // Get memory file size if created
+        let memory_size_bytes = memory_file.as_ref().and_then(|path| {
+            std::fs::metadata(path).ok().map(|m| m.len())
+        });
+        
+        info!(
+            snapshot = %options.name,
+            snapshot_type = if use_external { "external" } else { "internal" },
+            memory_included = %options.include_memory,
+            memory_size_bytes = ?memory_size_bytes,
+            "Snapshot created successfully"
+        );
         
         Ok(SnapshotInfo {
-            id: name.to_string(),
-            name: name.to_string(),
-            description: description.to_string(),
+            id: options.name.clone(),
+            name: options.name.clone(),
+            description: options.description.clone(),
             created_at: chrono::Utc::now(),
             vm_state: Self::state_from_libvirt(state),
             parent_id: None,
+            snapshot_type: if use_external { SnapshotType::External } else { SnapshotType::Internal },
+            memory_included: options.include_memory && (is_running || use_external),
+            memory_file,
+            memory_size_bytes,
         })
+    }
+    
+    /// Get list of disk device names for a VM (e.g., ["vda", "vdb"])
+    fn get_vm_disk_devices(&self, vm_id: &str) -> Result<Vec<String>> {
+        // Use virsh domblklist to get disk devices
+        let output = std::process::Command::new("virsh")
+            .args(["domblklist", vm_id, "--details"])
+            .output()
+            .map_err(|e| HypervisorError::Internal(format!("Failed to list disks: {}", e)))?;
+        
+        if !output.status.success() {
+            // Return default if we can't list disks
+            return Ok(vec!["vda".to_string()]);
+        }
+        
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let mut devices = Vec::new();
+        
+        // Parse output: Type Device Target Source
+        // Skip header lines
+        for line in stdout.lines().skip(2) {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 3 {
+                let device_type = parts[0];
+                let target = parts[2];
+                
+                // Only include disk devices (not cdrom)
+                if device_type == "file" || device_type == "block" {
+                    // Target is like "vda", "vdb", etc.
+                    if target.starts_with("vd") || target.starts_with("sd") || target.starts_with("hd") {
+                        devices.push(target.to_string());
+                    }
+                }
+            }
+        }
+        
+        if devices.is_empty() {
+            // Fallback to vda if parsing failed
+            devices.push("vda".to_string());
+        }
+        
+        debug!(vm_id = %vm_id, devices = ?devices, "Found disk devices");
+        Ok(devices)
     }
     
     #[instrument(skip(self), fields(vm_id = %vm_id, snapshot_id = %snapshot_id))]
