@@ -1,4 +1,4 @@
-//! # LimiQuantix Guest Agent
+//! # Quantix KVM Guest Agent
 //!
 //! A lightweight agent that runs inside guest VMs to enable deep integration
 //! with the hypervisor host via virtio-serial communication.
@@ -12,10 +12,16 @@
 //!
 //! ## Communication
 //! Uses virtio-serial (paravirtualized serial port) with length-prefixed protobuf.
+//!
+//! ## Architecture
+//! The agent uses a **Supervisor Loop** pattern to ensure resilience:
+//! - If the connection drops (host disconnects), it reconnects automatically
+//! - If telemetry fails repeatedly, the entire connection is reset
+//! - The process never dies due to connection issues, only on shutdown signals
 
 use anyhow::{Context, Result};
 use std::path::Path;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -40,7 +46,7 @@ use crate::protocol::{read_message, write_message};
 use crate::telemetry::TelemetryCollector;
 use crate::transport::AgentTransport;
 
-/// Global health state
+/// Global health state (persists across reconnections)
 pub struct HealthState {
     /// Last successful telemetry timestamp (unix millis)
     pub last_telemetry_success: AtomicU64,
@@ -50,6 +56,8 @@ pub struct HealthState {
     pub messages_processed: AtomicU64,
     /// Number of errors
     pub error_count: AtomicU64,
+    /// Number of reconnections
+    pub reconnection_count: AtomicU64,
 }
 
 impl HealthState {
@@ -59,6 +67,7 @@ impl HealthState {
             start_time: Instant::now(),
             messages_processed: AtomicU64::new(0),
             error_count: AtomicU64::new(0),
+            reconnection_count: AtomicU64::new(0),
         }
     }
 
@@ -76,6 +85,10 @@ impl HealthState {
 
     fn record_error(&self) {
         self.error_count.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn record_reconnection(&self) {
+        self.reconnection_count.fetch_add(1, Ordering::SeqCst);
     }
 
     fn uptime_secs(&self) -> u64 {
@@ -196,55 +209,15 @@ async fn main() -> Result<()> {
     info!(
         version = env!("CARGO_PKG_VERSION"),
         config_path = config::DEFAULT_CONFIG_PATH,
-        "LimiQuantix Guest Agent starting"
+        "Quantix KVM Guest Agent starting"
     );
 
     debug!(?config, "Configuration loaded");
 
-    // Initialize health state
+    // Initialize health state ONCE (persists across reconnections)
     let health = Arc::new(HealthState::new());
 
-    // Wait for and open the virtio-serial device
-    let device_path = config.get_device_path();
-    info!(device_path = %device_path, "Connecting to host");
-
-    let transport = AgentTransport::connect_with_path(&device_path)
-        .await
-        .context("Failed to connect to host")?;
-
-    info!("Connected to host via virtio-serial");
-
-    // Split the transport for reading and writing
-    let (reader, writer) = transport.split();
-    let writer = Arc::new(Mutex::new(writer));
-
-    // Create message handler with config
-    let handler = Arc::new(MessageHandler::new(config.clone()));
-
-    // Create telemetry collector
-    let telemetry = TelemetryCollector::new();
-
-    // Send agent ready event with all capabilities
-    send_agent_ready(&writer, &telemetry, &config).await?;
-
-    // Start telemetry loop (background task)
-    let telemetry_writer = writer.clone();
-    let telemetry_interval = config.telemetry_interval_secs;
-    let telemetry_health = health.clone();
-    tokio::spawn(async move {
-        if let Err(e) = telemetry_loop(
-            telemetry,
-            telemetry_writer,
-            telemetry_interval,
-            telemetry_health,
-        )
-        .await
-        {
-            error!(error = %e, "Telemetry loop failed");
-        }
-    });
-
-    // Start health check loop if enabled
+    // Start health check loop (runs independently of connection)
     if config.health.enabled {
         let health_clone = health.clone();
         let health_interval = config.health.interval_secs;
@@ -254,16 +227,159 @@ async fn main() -> Result<()> {
         });
     }
 
-    // Handle shutdown signals
-    let shutdown_writer = writer.clone();
+    // Setup shutdown signal handler
+    let shutdown_requested = Arc::new(AtomicBool::new(false));
+    let shutdown_flag = shutdown_requested.clone();
     tokio::spawn(async move {
-        if let Err(e) = handle_shutdown_signal(shutdown_writer).await {
-            error!(error = %e, "Shutdown handler failed");
+        if let Err(e) = wait_for_shutdown_signal().await {
+            error!(error = %e, "Shutdown signal handler failed");
         }
+        shutdown_flag.store(true, Ordering::SeqCst);
     });
 
-    // Main message loop
-    run_message_loop(reader, writer, handler, health).await
+    // ========================================================================
+    // SUPERVISOR LOOP - The core resilience pattern
+    // ========================================================================
+    // This loop ensures the agent stays alive and reconnects on failures:
+    // - If the host disconnects, we reconnect
+    // - If telemetry fails repeatedly, we reset the connection
+    // - Only shutdown signals cause the process to exit
+    // ========================================================================
+    
+    let mut reconnect_delay = Duration::from_secs(1);
+    const MAX_RECONNECT_DELAY: Duration = Duration::from_secs(30);
+    const INITIAL_RECONNECT_DELAY: Duration = Duration::from_secs(1);
+
+    loop {
+        // Check if shutdown was requested
+        if shutdown_requested.load(Ordering::SeqCst) {
+            info!("Shutdown signal received. Exiting agent gracefully.");
+            break;
+        }
+
+        info!(
+            reconnections = health.reconnection_count.load(Ordering::SeqCst),
+            "Attempting to connect to host..."
+        );
+
+        // 1. Connect to virtio-serial device
+        let device_path = config.get_device_path();
+        let transport = match AgentTransport::connect_with_path(&device_path).await {
+            Ok(t) => {
+                info!(device_path = %device_path, "Connected to host via virtio-serial");
+                reconnect_delay = INITIAL_RECONNECT_DELAY; // Reset backoff on success
+                t
+            }
+            Err(e) => {
+                error!(
+                    error = %e,
+                    device_path = %device_path,
+                    retry_in_secs = reconnect_delay.as_secs(),
+                    "Failed to connect to virtio-serial device"
+                );
+                tokio::time::sleep(reconnect_delay).await;
+                // Exponential backoff
+                reconnect_delay = (reconnect_delay * 2).min(MAX_RECONNECT_DELAY);
+                continue;
+            }
+        };
+
+        // 2. Setup resources for this connection
+        let (reader, writer) = transport.split();
+        let writer = Arc::new(Mutex::new(writer));
+        let handler = Arc::new(MessageHandler::new(config.clone()));
+        let telemetry = TelemetryCollector::new();
+
+        // 3. Send AgentReady event (handshake)
+        if let Err(e) = send_agent_ready(&writer, &telemetry, &config).await {
+            error!(error = %e, "Failed to send AgentReady - reconnecting...");
+            health.record_error();
+            tokio::time::sleep(Duration::from_secs(2)).await;
+            continue;
+        }
+
+        // 4. Run tasks in parallel using tokio::select!
+        // This is the KEY FIX: If EITHER task fails, BOTH are cancelled and we reconnect
+        let telemetry_writer = writer.clone();
+        let telemetry_health = health.clone();
+        let telemetry_interval = config.telemetry_interval_secs;
+        
+        let read_handler = handler.clone();
+        let read_writer = writer.clone();
+        let read_health = health.clone();
+        let shutdown_check = shutdown_requested.clone();
+
+        let connection_result = tokio::select! {
+            // Task A: Telemetry Loop
+            res = telemetry_loop(telemetry, telemetry_writer, telemetry_interval, telemetry_health) => {
+                match &res {
+                    Ok(_) => warn!("Telemetry loop finished unexpectedly (should run forever)"),
+                    Err(e) => error!(error = %e, "Telemetry loop failed - triggering reconnect"),
+                }
+                res.map(|_| "telemetry")
+            }
+            
+            // Task B: Message Read Loop
+            res = run_message_loop(reader, read_writer, read_handler, read_health) => {
+                match &res {
+                    Ok(_) => info!("Connection closed by host (EOF)"),
+                    Err(e) => error!(error = %e, "Read loop failed - triggering reconnect"),
+                }
+                res.map(|_| "read_loop")
+            }
+
+            // Task C: Periodic shutdown check (every 5 seconds)
+            _ = async {
+                loop {
+                    tokio::time::sleep(Duration::from_secs(5)).await;
+                    if shutdown_check.load(Ordering::SeqCst) {
+                        break;
+                    }
+                }
+            } => {
+                info!("Shutdown signal detected during connection");
+                Ok("shutdown")
+            }
+        };
+
+        // 5. Connection ended - either failure or shutdown
+        // Resources (transport, writer, reader) are automatically dropped here
+        
+        match connection_result {
+            Ok("shutdown") => {
+                info!("Shutting down agent");
+                break;
+            }
+            Ok(task_name) => {
+                info!(task = task_name, "Connection ended normally");
+            }
+            Err(_) => {
+                health.record_error();
+            }
+        }
+
+        // Record reconnection attempt
+        health.record_reconnection();
+        
+        warn!(
+            reconnect_delay_secs = reconnect_delay.as_secs(),
+            total_reconnections = health.reconnection_count.load(Ordering::SeqCst),
+            "Connection lost or reset. Reconnecting..."
+        );
+        
+        tokio::time::sleep(reconnect_delay).await;
+        // Apply backoff for repeated failures
+        reconnect_delay = (reconnect_delay * 2).min(MAX_RECONNECT_DELAY);
+    }
+
+    info!(
+        uptime_secs = health.uptime_secs(),
+        messages_processed = health.messages_processed.load(Ordering::SeqCst),
+        total_reconnections = health.reconnection_count.load(Ordering::SeqCst),
+        "Quantix KVM Guest Agent stopped"
+    );
+
+    Ok(())
 }
 
 /// Send the AgentReady event to the host
@@ -301,16 +417,26 @@ async fn send_agent_ready<W: AsyncWriteExt + Unpin>(
         })),
     };
 
+    // Use timeout to prevent blocking forever on initial write
+    let write_timeout = Duration::from_secs(10);
     let mut guard = writer.lock().await;
-    write_message(&mut *guard, &ready_event)
-        .await
-        .context("Failed to send AgentReady event")?;
-
-    info!(
-        capabilities = ?get_capabilities().len(),
-        "Sent AgentReady event to host"
-    );
-    Ok(())
+    
+    match tokio::time::timeout(write_timeout, write_message(&mut *guard, &ready_event)).await {
+        Ok(Ok(())) => {
+            info!(
+                capabilities = get_capabilities().len(),
+                version = env!("CARGO_PKG_VERSION"),
+                "Sent AgentReady event to host"
+            );
+            Ok(())
+        }
+        Ok(Err(e)) => {
+            Err(e).context("Failed to send AgentReady event")
+        }
+        Err(_) => {
+            Err(anyhow::anyhow!("Timeout sending AgentReady event - host may not be reading"))
+        }
+    }
 }
 
 /// Telemetry reporting loop with write timeout, error tracking, and recovery.
@@ -319,10 +445,10 @@ async fn send_agent_ready<W: AsyncWriteExt + Unpin>(
 /// 1. Using a timeout to prevent indefinite blocking on writes
 /// 2. Tracking consecutive failures to detect connection issues
 /// 3. Logging detailed error information for debugging
-/// 4. **Signaling for reconnection when failures exceed threshold**
+/// 4. **Returning Err when failures exceed threshold** to trigger reconnection
 /// 
-/// Returns `Err` when too many consecutive failures occur, signaling the caller
-/// to attempt device reconnection.
+/// Returns `Err` when too many consecutive failures occur, signaling the supervisor
+/// loop to tear down this connection and reconnect.
 async fn telemetry_loop<W: AsyncWriteExt + Unpin + Send + 'static>(
     collector: TelemetryCollector,
     writer: Arc<Mutex<W>>,
@@ -341,6 +467,12 @@ async fn telemetry_loop<W: AsyncWriteExt + Unpin + Send + 'static>(
     
     let mut interval = tokio::time::interval(Duration::from_secs(interval_secs));
     let mut consecutive_failures: u32 = 0;
+
+    info!(
+        interval_secs = interval_secs,
+        reconnect_threshold = RECONNECT_THRESHOLD,
+        "Telemetry loop started"
+    );
 
     loop {
         interval.tick().await;
@@ -424,7 +556,7 @@ async fn telemetry_loop<W: AsyncWriteExt + Unpin + Send + 'static>(
     }
 }
 
-/// Health check loop
+/// Health check loop (runs independently of connection)
 async fn health_check_loop(health: Arc<HealthState>, interval_secs: u64, telemetry_timeout_secs: u64) {
     let mut interval = tokio::time::interval(Duration::from_secs(interval_secs));
 
@@ -434,6 +566,7 @@ async fn health_check_loop(health: Arc<HealthState>, interval_secs: u64, telemet
         let uptime = health.uptime_secs();
         let messages = health.messages_processed.load(Ordering::SeqCst);
         let errors = health.error_count.load(Ordering::SeqCst);
+        let reconnections = health.reconnection_count.load(Ordering::SeqCst);
         let last_telemetry = health.last_telemetry_success.load(Ordering::SeqCst);
 
         // Check if telemetry is stale
@@ -455,6 +588,7 @@ async fn health_check_loop(health: Arc<HealthState>, interval_secs: u64, telemet
                 uptime_secs = uptime,
                 messages_processed = messages,
                 errors = errors,
+                reconnections = reconnections,
                 telemetry_age_secs = telemetry_age_secs,
                 "Health check: OK"
             );
@@ -463,6 +597,7 @@ async fn health_check_loop(health: Arc<HealthState>, interval_secs: u64, telemet
                 uptime_secs = uptime,
                 messages_processed = messages,
                 errors = errors,
+                reconnections = reconnections,
                 telemetry_age_secs = telemetry_age_secs,
                 timeout_secs = telemetry_timeout_secs,
                 "Health check: DEGRADED - telemetry stale"
@@ -484,7 +619,7 @@ where
 {
     use limiquantix_proto::agent::AgentMessage;
 
-    info!("Starting message loop");
+    info!("Message read loop started");
 
     loop {
         // Read incoming message
@@ -520,26 +655,22 @@ where
                 });
             }
             Ok(None) => {
-                // Connection closed
-                info!("Connection closed by host");
-                break;
+                // Connection closed by host (EOF)
+                info!("Host closed the connection (EOF)");
+                return Ok(());
             }
             Err(e) => {
-                error!(error = %e, "Failed to read message");
+                // Read error - could be transient or fatal
+                error!(error = %e, "Failed to read message from host");
                 health.record_error();
-                // Small delay before retrying
-                tokio::time::sleep(Duration::from_millis(100)).await;
+                return Err(e);
             }
         }
     }
-
-    Ok(())
 }
 
-/// Handle shutdown signals (SIGTERM, SIGINT)
-async fn handle_shutdown_signal<W: AsyncWriteExt + Unpin>(
-    _writer: Arc<Mutex<W>>,
-) -> Result<()> {
+/// Wait for shutdown signal (SIGTERM, SIGINT, or Ctrl+C)
+async fn wait_for_shutdown_signal() -> Result<()> {
     #[cfg(unix)]
     {
         use tokio::signal::unix::{signal, SignalKind};
@@ -549,10 +680,10 @@ async fn handle_shutdown_signal<W: AsyncWriteExt + Unpin>(
 
         tokio::select! {
             _ = sigterm.recv() => {
-                info!("Received SIGTERM, shutting down");
+                info!("Received SIGTERM");
             }
             _ = sigint.recv() => {
-                info!("Received SIGINT, shutting down");
+                info!("Received SIGINT");
             }
         }
     }
@@ -560,8 +691,8 @@ async fn handle_shutdown_signal<W: AsyncWriteExt + Unpin>(
     #[cfg(windows)]
     {
         tokio::signal::ctrl_c().await?;
-        info!("Received Ctrl+C, shutting down");
+        info!("Received Ctrl+C");
     }
 
-    std::process::exit(0);
+    Ok(())
 }

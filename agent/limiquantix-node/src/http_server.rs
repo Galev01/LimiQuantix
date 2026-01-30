@@ -4378,19 +4378,57 @@ async fn mount_agent_iso(
     }
     
     // Find the agent tools ISO
-    let iso_paths = [
-        "/data/share/quantix-agent/quantix-kvm-agent-tools.iso",
-        "/data/isos/quantix-kvm-agent-tools.iso",
-        "/opt/quantix/agent-tools.iso",
-        "/usr/share/quantix/agent-tools.iso",
-    ];
-    
+    // FIRST, search for versioned ISOs (quantix-kvm-agent-tools-X.Y.Z.iso) and pick the NEWEST
+    // This ensures newly uploaded ISOs are always used, not stale ones
     let mut iso_path: Option<String> = None;
-    for path in &iso_paths {
-        if std::path::Path::new(path).exists() {
-            iso_path = Some(path.to_string());
-            info!(path = %path, "Found agent tools ISO");
-            break;
+    let search_dirs = ["/data/isos", "/data/share/quantix-agent", "/opt/quantix"];
+    
+    for dir in &search_dirs {
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            let mut versioned_isos: Vec<(String, std::time::SystemTime)> = entries
+                .filter_map(|e| e.ok())
+                .filter(|e| {
+                    let name = e.file_name().to_string_lossy().to_lowercase();
+                    // Match versioned ISOs like quantix-kvm-agent-tools-0.1.17.iso
+                    name.starts_with("quantix-kvm-agent-tools-") && name.ends_with(".iso")
+                })
+                .filter_map(|e| {
+                    let path = e.path().to_string_lossy().to_string();
+                    let modified = e.metadata().ok()?.modified().ok()?;
+                    Some((path, modified))
+                })
+                .collect();
+            
+            // Sort by modification time (newest first)
+            versioned_isos.sort_by(|a, b| b.1.cmp(&a.1));
+            
+            if let Some((latest_path, _)) = versioned_isos.first() {
+                iso_path = Some(latest_path.clone());
+                info!(
+                    path = %latest_path, 
+                    total_found = versioned_isos.len(),
+                    "Found latest versioned agent tools ISO"
+                );
+                break;
+            }
+        }
+    }
+    
+    // If no versioned ISO found, fall back to exact paths (symlinks or unversioned files)
+    if iso_path.is_none() {
+        let fallback_paths = [
+            "/data/share/quantix-agent/quantix-kvm-agent-tools.iso",
+            "/data/isos/quantix-kvm-agent-tools.iso",
+            "/opt/quantix/agent-tools.iso",
+            "/usr/share/quantix/agent-tools.iso",
+        ];
+        
+        for path in &fallback_paths {
+            if std::path::Path::new(path).exists() {
+                iso_path = Some(path.to_string());
+                info!(path = %path, "Found agent tools ISO at fallback path");
+                break;
+            }
         }
     }
     
@@ -4436,8 +4474,8 @@ async fn mount_agent_iso(
         )
     })?;
     
-    // Find an available CD-ROM device or add a new one
-    // First, try to get the VM's XML to find existing CD-ROM devices
+    // Find an existing CD-ROM device (prefer to reuse rather than create new)
+    // This approach: find any CD-ROM, eject if needed, then mount new ISO
     let output = tokio::process::Command::new("virsh")
         .args(["dumpxml", &vm.name])
         .output()
@@ -4447,8 +4485,8 @@ async fn mount_agent_iso(
         Ok(result) if result.status.success() => {
             let xml = String::from_utf8_lossy(&result.stdout);
             
-            // Find all CD-ROM devices and check if any is empty or has our ISO
-            let mut empty_cdrom: Option<String> = None;
+            // Find the first CD-ROM device (we'll reuse it)
+            let mut first_cdrom: Option<String> = None;
             let mut used_devices: Vec<String> = Vec::new();
             
             // Parse each CD-ROM disk entry
@@ -4462,33 +4500,26 @@ async fn mount_agent_iso(
                         let device = target_section[..quote_end].to_string();
                         used_devices.push(device.clone());
                         
-                        // Check if this CD-ROM is empty (no source)
-                        let disk_end = cdrom_section.find("</disk>").unwrap_or(500);
-                        let disk_section = &cdrom_section[..disk_end];
-                        
-                        // Empty CD-ROM has no <source> or has <source file=''/>
-                        let has_source = disk_section.contains("<source file='") && 
-                            !disk_section.contains("<source file=''/>");
-                        
-                        if !has_source && empty_cdrom.is_none() {
-                            empty_cdrom = Some(device);
+                        // Take the first CD-ROM we find - we'll reuse it
+                        if first_cdrom.is_none() {
+                            first_cdrom = Some(device);
                         }
                     }
                 }
             }
             
-            // If we found an empty CD-ROM, use it
-            if let Some(device) = empty_cdrom {
-                info!(device = %device, "Found empty CD-ROM device");
+            // If we found any CD-ROM, use it (we'll eject+remount)
+            if let Some(device) = first_cdrom {
+                info!(device = %device, "Found existing CD-ROM device, will eject and mount new ISO");
                 (device, false)
             } else {
-                // Find the next available device name (sdb, sdc, etc.)
+                // No CD-ROM exists, need to attach one
                 let next_device = find_next_cdrom_device(&used_devices);
-                info!(device = %next_device, existing = ?used_devices, "Will attach new CD-ROM device");
+                info!(device = %next_device, "No CD-ROM device found, will attach new one");
                 (next_device, true)
             }
         }
-        _ => ("sdb".to_string(), true), // fallback: attach new device
+        _ => ("sda".to_string(), true), // fallback: attach new device
     };
     
     info!(device = %cdrom_device, iso_path = %iso_path, need_attach = need_attach, "Mounting ISO to CD-ROM");
@@ -4517,6 +4548,8 @@ async fn mount_agent_iso(
                 // If attach failed because device exists, try change_media instead
                 if stderr.contains("already exists") || stderr.contains("in use") {
                     info!(device = %cdrom_device, "Device exists, trying change_media instead");
+                    // Eject first, then insert
+                    let _ = state.service.hypervisor().change_media(&vm.id, &cdrom_device, None).await;
                     state.service.hypervisor().change_media(&vm.id, &cdrom_device, Some(&iso_path))
                         .await
                         .map_err(|e| {
@@ -4540,7 +4573,18 @@ async fn mount_agent_iso(
             }
         }
     } else {
-        // Change media on existing empty CD-ROM
+        // EJECT first (if anything mounted), then insert new ISO
+        // This ensures we always replace whatever was there before
+        info!(device = %cdrom_device, "Ejecting any existing media before mounting new ISO");
+        let eject_result = state.service.hypervisor().change_media(&vm.id, &cdrom_device, None).await;
+        if let Err(e) = &eject_result {
+            debug!(error = %e, "Eject returned error (may be empty, continuing)");
+        }
+        
+        // Small delay to ensure eject completes
+        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+        
+        // Now mount the new ISO
         state.service.hypervisor().change_media(&vm.id, &cdrom_device, Some(&iso_path))
             .await
             .map_err(|e| {

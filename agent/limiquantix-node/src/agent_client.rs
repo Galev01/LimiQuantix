@@ -818,41 +818,161 @@ mod unix_impl {
         Ok(())
     }
 
-    /// Read a length-prefixed protobuf message from any async reader.
+    /// Magic header for protocol framing: "QTX1" (Quantix Protocol v1)
+    /// This allows the reader to resync if it receives garbage/stale data.
+    const MAGIC_HEADER: [u8; 4] = [0x51, 0x54, 0x58, 0x01]; // Q=0x51, T=0x54, X=0x58, 1=0x01
+    
+    /// Maximum bytes to scan when resyncing before giving up
+    const MAX_RESYNC_BYTES: usize = 64 * 1024; // 64KB
+
+    /// Read a magic-header-prefixed protobuf message from any async reader.
+    /// 
+    /// The protocol format is:
+    /// - 4 bytes: Magic header "QTX1" (0x51 0x54 0x58 0x01)
+    /// - 4 bytes: Message length (big-endian u32)
+    /// - N bytes: Protobuf payload
+    ///
+    /// If garbage data is encountered, this function will scan for the magic header,
+    /// discarding invalid bytes until a valid message is found. This prevents the
+    /// deadlock scenario where:
+    /// 1. Host connects after guest sent data
+    /// 2. Host reads garbage as a huge "length" (e.g., 50,000)
+    /// 3. Host blocks forever waiting for 50,000 bytes
+    /// 4. Guest's buffer fills up and writes timeout
     async fn read_message<R, M>(reader: &mut R) -> Result<Option<M>>
     where
         R: AsyncReadExt + Unpin,
         M: Message + Default,
     {
-        let mut len_buf = [0u8; 4];
-        match reader.read_exact(&mut len_buf).await {
-            Ok(_) => {}
-            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
-                return Ok(None);
+        let mut resync_bytes_scanned: usize = 0;
+        
+        loop {
+            // 1. Scan for Magic Header (Resync Mechanism)
+            let mut header_byte = [0u8; 1];
+            let mut match_count: usize = 0;
+
+            while match_count < 4 {
+                match reader.read(&mut header_byte).await {
+                    Ok(0) => {
+                        // EOF
+                        return Ok(None);
+                    }
+                    Ok(_) => {}
+                    Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+                        return Ok(None);
+                    }
+                    Err(e) => {
+                        return Err(e).context("Failed to read magic header");
+                    }
+                }
+
+                if header_byte[0] == MAGIC_HEADER[match_count] {
+                    match_count += 1;
+                } else {
+                    // Mismatch - check if this byte starts a new sequence
+                    if match_count > 0 {
+                        resync_bytes_scanned += match_count;
+                        if resync_bytes_scanned > 0 && resync_bytes_scanned % 1000 == 0 {
+                            warn!(
+                                bytes_scanned = resync_bytes_scanned,
+                                "Protocol resync in progress - scanning for magic header"
+                            );
+                        }
+                    }
+                    
+                    // Check if current byte could be start of new magic sequence
+                    match_count = if header_byte[0] == MAGIC_HEADER[0] { 1 } else { 0 };
+                    
+                    if match_count == 0 {
+                        resync_bytes_scanned += 1;
+                    }
+                    
+                    // Safety limit to prevent infinite scanning
+                    if resync_bytes_scanned > MAX_RESYNC_BYTES {
+                        return Err(anyhow!(
+                            "Failed to find magic header after scanning {} bytes - connection may be corrupted",
+                            resync_bytes_scanned
+                        ));
+                    }
+                }
             }
-            Err(e) => {
-                return Err(e).context("Failed to read message length");
+
+            // Log if we had to resync
+            if resync_bytes_scanned > 0 {
+                warn!(
+                    bytes_skipped = resync_bytes_scanned,
+                    "Protocol resynced - skipped garbage bytes before finding valid header"
+                );
+                resync_bytes_scanned = 0;
+            }
+
+            // 2. Read the 4-byte length prefix
+            let mut len_buf = [0u8; 4];
+            match reader.read_exact(&mut len_buf).await {
+                Ok(_) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+                    return Ok(None);
+                }
+                Err(e) => {
+                    return Err(e).context("Failed to read message length");
+                }
+            }
+
+            let len = u32::from_be_bytes(len_buf) as usize;
+
+            // 3. Validate message size - if invalid, resync
+            if len == 0 {
+                warn!("Received zero-length message, resyncing...");
+                continue;
+            }
+            
+            if len > MAX_MESSAGE_SIZE {
+                warn!(
+                    length = len,
+                    max = MAX_MESSAGE_SIZE,
+                    "Message length exceeds maximum, resyncing..."
+                );
+                // The length is garbage - go back to scanning for magic header
+                continue;
+            }
+
+            // 4. Read the payload
+            let mut payload = vec![0u8; len];
+            match reader.read_exact(&mut payload).await {
+                Ok(_) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+                    return Ok(None);
+                }
+                Err(e) => {
+                    return Err(e).context("Failed to read message payload");
+                }
+            }
+
+            // 5. Decode the protobuf message
+            match M::decode(&payload[..]) {
+                Ok(message) => {
+                    debug!(length = len, "Message received and decoded");
+                    return Ok(Some(message));
+                }
+                Err(e) => {
+                    warn!(
+                        error = %e,
+                        length = len,
+                        "Failed to decode protobuf message, resyncing..."
+                    );
+                    // Corrupted payload - go back to scanning for magic header
+                    continue;
+                }
             }
         }
-
-        let len = u32::from_be_bytes(len_buf) as usize;
-
-        if len > MAX_MESSAGE_SIZE {
-            return Err(anyhow!("Message too large: {} bytes", len));
-        }
-
-        let mut payload = vec![0u8; len];
-        reader
-            .read_exact(&mut payload)
-            .await
-            .context("Failed to read message payload")?;
-
-        let message = M::decode(&payload[..]).context("Failed to decode message")?;
-
-        Ok(Some(message))
     }
 
-    /// Write a length-prefixed protobuf message to any async writer.
+    /// Write a magic-header-prefixed protobuf message to any async writer.
+    /// 
+    /// The protocol format is:
+    /// - 4 bytes: Magic header "QTX1" (0x51 0x54 0x58 0x01)
+    /// - 4 bytes: Message length (big-endian u32)
+    /// - N bytes: Protobuf payload
     async fn write_message<W, M>(writer: &mut W, message: &M) -> Result<()>
     where
         W: AsyncWriteExt + Unpin,
@@ -865,8 +985,14 @@ mod unix_impl {
             return Err(anyhow!("Message too large: {} bytes", len));
         }
 
+        // Write magic header first
+        writer.write_all(&MAGIC_HEADER).await.context("Failed to write magic header")?;
+        
+        // Write length
         let len_bytes = (len as u32).to_be_bytes();
         writer.write_all(&len_bytes).await.context("Failed to write message length")?;
+        
+        // Write payload
         writer.write_all(&payload).await.context("Failed to write message payload")?;
         writer.flush().await.context("Failed to flush")?;
 
