@@ -30,6 +30,8 @@ import { ConsoleDock } from '@/pages/ConsoleDock';
 import { AdminPanel } from '@/pages/admin';
 import { RouteErrorBoundary } from '@/components/ErrorBoundary';
 import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
+import { UpdateInProgressModal } from '@/components/UpdateInProgressModal';
+import { useVDCUpdateStatus } from '@/hooks/useUpdates';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -127,11 +129,34 @@ function AppRoutes() {
   );
 }
 
+/**
+ * Update Monitor Component
+ * Displays the update modal when vDC is being updated
+ */
+function UpdateMonitor() {
+  const { data: updateStatus } = useVDCUpdateStatus();
+  
+  const isUpdating = updateStatus?.status === 'applying' || updateStatus?.status === 'downloading';
+  
+  const handleReconnected = () => {
+    // Reload the page to get fresh content after update
+    window.location.reload();
+  };
+  
+  return (
+    <UpdateInProgressModal 
+      isOpen={isUpdating} 
+      onReconnected={handleReconnected}
+    />
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AppRoutes />
+        <UpdateMonitor />
       </BrowserRouter>
       <Toaster
         position="bottom-right"

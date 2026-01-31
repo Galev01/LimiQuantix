@@ -1098,6 +1098,10 @@ impl NodeDaemonServiceImpl {
                     ipv4_addresses: i.ipv4_addresses.clone(),
                     ipv6_addresses: i.ipv6_addresses.clone(),
                     is_up: i.state == 1, // INTERFACE_STATE_UP
+                    rx_bytes: i.rx_bytes,
+                    tx_bytes: i.tx_bytes,
+                    rx_packets: i.rx_packets,
+                    tx_packets: i.tx_packets,
                 }).collect())
                 .unwrap_or_default();
             

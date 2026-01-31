@@ -193,17 +193,71 @@ Internal (disk-only) snapshots can be reverted while the VM is running, but this
 
 ## Deleting External Snapshots
 
-External snapshots require merging the overlay back into the base image:
+External snapshots require merging the overlay back into the base image. The implementation handles this automatically:
+
+1. **Detect external snapshot** by checking for memory file at `/var/lib/libvirt/snapshots/{vm_id}/{snapshot_name}.mem`
+2. **Merge disk overlays** using `virsh blockcommit` for each disk
+3. **Delete memory file** from the snapshot directory
+4. **Delete snapshot metadata** using `virsh snapshot-delete --metadata`
+5. **Clean up empty directories**
+
+### Manual Commands (if needed)
 
 ```bash
 # Merge overlay into base (blockcommit)
-virsh blockcommit vm-123 vda --active --pivot
+virsh blockcommit vm-123 vda --active --pivot --wait
 
-# Then delete the snapshot metadata
+# Delete memory file
+rm /var/lib/libvirt/snapshots/vm-123/snap1.mem
+
+# Delete overlay file (after merge)
+rm /var/lib/libvirt/snapshots/vm-123/snap1-vda.qcow2
+
+# Delete snapshot metadata
 virsh snapshot-delete vm-123 snap1 --metadata
 ```
 
-**Note**: The current implementation handles this automatically when deleting snapshots.
+## Snapshot Storage Architecture
+
+### Where Snapshots Are Stored
+
+| Location | What's Stored | Purpose |
+|----------|---------------|---------|
+| **QvDC PostgreSQL** (`vm_snapshots` table) | Metadata only (name, description, state, timestamps) | Centralized management, UI display |
+| **QHCI Hypervisor** (libvirt) | Actual snapshot data | Disk state, memory state |
+
+### Storage Paths on QHCI
+
+| Snapshot Type | Storage Location |
+|---------------|------------------|
+| **Internal (disk-only)** | Inside the qcow2 disk image (managed by libvirt) |
+| **External memory file** | `/var/lib/libvirt/snapshots/{vm_id}/{snapshot_name}.mem` |
+| **External disk overlays** | `/var/lib/libvirt/snapshots/{vm_id}/{snapshot_name}-{disk}.qcow2` |
+
+### Deletion Flow
+
+```
+User clicks "Delete" in QvDC Dashboard
+         │
+         ▼
+QvDC Backend calls Node Daemon (QHCI) via gRPC
+         │
+         ▼
+QHCI detects snapshot type (internal vs external)
+         │
+         ├─► Internal: virsh snapshot-delete
+         │
+         └─► External:
+             1. virsh blockcommit (merge overlays)
+             2. Delete .mem file
+             3. Delete overlay .qcow2 files
+             4. virsh snapshot-delete --metadata
+         │
+         ▼
+QvDC deletes row from vm_snapshots table
+```
+
+Both ends are cleaned up automatically.
 
 ## Performance Considerations
 

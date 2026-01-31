@@ -17,13 +17,24 @@ import {
   Loader2,
   Shield,
   X,
+  WifiOff,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { showInfo } from '@/lib/toast';
+import { showSuccess, showError } from '@/lib/toast';
 import { useApiConnection } from '@/hooks/useDashboard';
+import {
+  useLoadBalancers,
+  useCreateLoadBalancer,
+  useDeleteLoadBalancer,
+  useLoadBalancerStats,
+  useAddPoolMember,
+  useRemovePoolMember,
+  type ApiLoadBalancer,
+} from '@/hooks/useLoadBalancers';
 
+// Internal UI types (mapped from API types)
 interface LoadBalancer {
   id: string;
   name: string;
@@ -64,6 +75,72 @@ interface LBStats {
   requestsPerSecond: number;
 }
 
+// Convert API types to UI types
+function mapApiToUI(apiLb: ApiLoadBalancer): LoadBalancer {
+  const listeners: LBListener[] = (apiLb.spec?.listeners || []).map((l) => ({
+    id: l.id || '',
+    port: l.port || 0,
+    protocol: l.protocol || 'TCP',
+    defaultPoolId: l.defaultPoolId || '',
+  }));
+
+  // Flatten members from all pools
+  const members: LBMember[] = [];
+  for (const pool of apiLb.spec?.pools || []) {
+    for (const m of pool.members || []) {
+      members.push({
+        id: m.id || '',
+        name: m.address,
+        address: m.address,
+        port: m.port,
+        weight: m.weight || 1,
+        healthy: m.adminStateUp !== false, // Default to healthy if not specified
+      });
+    }
+  }
+
+  // Get algorithm from first pool
+  const algorithm = (apiLb.spec?.pools?.[0]?.algorithm || 'ROUND_ROBIN') as LoadBalancer['algorithm'];
+
+  // Map status
+  let status: LoadBalancer['status'] = 'PENDING';
+  switch (apiLb.status?.phase) {
+    case 'ACTIVE':
+      status = 'ACTIVE';
+      break;
+    case 'ERROR':
+      status = 'ERROR';
+      break;
+    case 'PENDING':
+      status = 'PENDING';
+      break;
+    default:
+      status = 'PENDING';
+  }
+
+  return {
+    id: apiLb.id,
+    name: apiLb.name,
+    description: apiLb.description || '',
+    vip: apiLb.status?.vipAddress || apiLb.spec?.vipAddress || '',
+    networkId: apiLb.spec?.networkId || '',
+    networkName: apiLb.spec?.networkId || 'Unknown',
+    algorithm,
+    protocol: (listeners[0]?.protocol || 'TCP') as LoadBalancer['protocol'],
+    status,
+    listeners,
+    members,
+    stats: {
+      activeConnections: 0,
+      totalConnections: 0,
+      bytesIn: 0,
+      bytesOut: 0,
+      requestsPerSecond: 0,
+    },
+    createdAt: apiLb.createdAt || new Date().toISOString(),
+  };
+}
+
 const algorithmConfig = {
   ROUND_ROBIN: { label: 'Round Robin', color: 'blue' },
   LEAST_CONNECTIONS: { label: 'Least Connections', color: 'purple' },
@@ -93,11 +170,27 @@ export function LoadBalancers() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   
   // API connection
-  const { data: isConnected = false } = useApiConnection();
+  const { data: connectionData } = useApiConnection();
+  const isConnected = connectionData?.isConnected ?? false;
   
-  // TODO: Replace with real API hook when load balancer service is implemented
-  // For now, show empty state (no mock data)
-  const loadBalancers: LoadBalancer[] = [];
+  // Fetch load balancers from API
+  const {
+    data: lbResponse,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+  } = useLoadBalancers({
+    enabled: isConnected,
+    refetchInterval: 10000, // Refresh every 10 seconds
+  });
+  
+  // Mutations
+  const createMutation = useCreateLoadBalancer();
+  const deleteMutation = useDeleteLoadBalancer();
+  
+  // Map API response to UI format
+  const loadBalancers: LoadBalancer[] = (lbResponse?.loadBalancers || []).map(mapApiToUI);
 
   const filteredLBs = loadBalancers.filter((lb) =>
     lb.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -113,6 +206,36 @@ export function LoadBalancers() {
     ),
     totalMembers: loadBalancers.reduce((sum, lb) => sum + lb.members.length, 0),
   };
+  
+  // Handle create
+  const handleCreate = (data: Partial<LoadBalancer>) => {
+    createMutation.mutate(
+      {
+        name: data.name || '',
+        description: data.description,
+        projectId: 'default',
+        spec: {
+          networkId: data.networkId,
+          vipAddress: data.vip,
+          listeners: [
+            {
+              protocol: data.protocol || 'TCP',
+              port: 80, // Default port, can be updated from form
+            },
+          ],
+          pools: [
+            {
+              name: 'default-pool',
+              algorithm: data.algorithm || 'ROUND_ROBIN',
+            },
+          ],
+        },
+      },
+      {
+        onSuccess: () => setIsCreateModalOpen(false),
+      }
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -123,11 +246,24 @@ export function LoadBalancers() {
           <p className="text-text-muted mt-1">L4 load balancing via OVN</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="secondary">
-            <RefreshCw className="w-4 h-4" />
+          {!isConnected && (
+            <Badge variant="warning">
+              <WifiOff className="w-3 h-3 mr-1" />
+              Disconnected
+            </Badge>
+          )}
+          <Button
+            variant="secondary"
+            onClick={() => refetch()}
+            disabled={isFetching}
+          >
+            <RefreshCw className={cn('w-4 h-4', isFetching && 'animate-spin')} />
             Refresh
           </Button>
-          <Button onClick={() => setIsCreateModalOpen(true)}>
+          <Button
+            onClick={() => setIsCreateModalOpen(true)}
+            disabled={!isConnected}
+          >
             <Plus className="w-4 h-4" />
             New Load Balancer
           </Button>
@@ -176,23 +312,59 @@ export function LoadBalancers() {
       </div>
 
       {/* Load Balancer Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {filteredLBs.map((lb, index) => (
-          <LoadBalancerCard
-            key={lb.id}
-            lb={lb}
-            index={index}
-            isSelected={selectedLB === lb.id}
-            onClick={() => setSelectedLB(lb.id === selectedLB ? null : lb.id)}
-          />
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-accent" />
+          <span className="ml-3 text-text-muted">Loading load balancers...</span>
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center py-12">
+          <AlertTriangle className="w-12 h-12 text-warning mb-4" />
+          <p className="text-text-primary font-medium">Failed to load load balancers</p>
+          <p className="text-text-muted text-sm mt-1">{(error as Error).message}</p>
+          <Button variant="secondary" className="mt-4" onClick={() => refetch()}>
+            <RefreshCw className="w-4 h-4" />
+            Retry
+          </Button>
+        </div>
+      ) : filteredLBs.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12">
+          <Scale className="w-12 h-12 text-text-muted mb-4" />
+          <p className="text-text-primary font-medium">No load balancers found</p>
+          <p className="text-text-muted text-sm mt-1">
+            {searchQuery ? 'Try a different search term' : 'Create your first load balancer to get started'}
+          </p>
+          {!searchQuery && (
+            <Button className="mt-4" onClick={() => setIsCreateModalOpen(true)}>
+              <Plus className="w-4 h-4" />
+              Create Load Balancer
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {filteredLBs.map((lb, index) => (
+            <LoadBalancerCard
+              key={lb.id}
+              lb={lb}
+              index={index}
+              isSelected={selectedLB === lb.id}
+              onClick={() => setSelectedLB(lb.id === selectedLB ? null : lb.id)}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Detail Panel */}
       {selectedLB && (
         <LBDetailPanel
           lb={loadBalancers.find((l) => l.id === selectedLB)!}
           onClose={() => setSelectedLB(null)}
+          onDelete={() => {
+            deleteMutation.mutate(selectedLB, {
+              onSuccess: () => setSelectedLB(null),
+            });
+          }}
         />
       )}
 
@@ -200,10 +372,8 @@ export function LoadBalancers() {
       <CreateLoadBalancerModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onSubmit={(data) => {
-          showInfo(`Demo mode: Load balancer "${data.name}" created (simulated)`);
-          setIsCreateModalOpen(false);
-        }}
+        onSubmit={handleCreate}
+        isLoading={createMutation.isPending}
       />
     </div>
   );
@@ -335,7 +505,15 @@ function LoadBalancerCard({
   );
 }
 
-function LBDetailPanel({ lb, onClose }: { lb: LoadBalancer; onClose: () => void }) {
+function LBDetailPanel({
+  lb,
+  onClose,
+  onDelete,
+}: {
+  lb: LoadBalancer;
+  onClose: () => void;
+  onDelete?: () => void;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -361,6 +539,12 @@ function LBDetailPanel({ lb, onClose }: { lb: LoadBalancer; onClose: () => void 
             <Settings className="w-4 h-4" />
             Configure
           </Button>
+          {onDelete && (
+            <Button variant="secondary" size="sm" onClick={onDelete}>
+              <Trash2 className="w-4 h-4 text-error" />
+              Delete
+            </Button>
+          )}
           <button
             onClick={onClose}
             className="p-2 text-text-muted hover:text-text-primary transition-colors"
@@ -457,10 +641,12 @@ function CreateLoadBalancerModal({
   isOpen,
   onClose,
   onSubmit,
+  isLoading,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: Partial<LoadBalancer>) => void;
+  isLoading?: boolean;
 }) {
   const [formData, setFormData] = useState({
     name: '',
@@ -612,11 +798,18 @@ function CreateLoadBalancerModal({
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-border">
-              <Button type="button" variant="secondary" onClick={onClose}>
+              <Button type="button" variant="secondary" onClick={onClose} disabled={isLoading}>
                 Cancel
               </Button>
-              <Button type="submit">
-                Create Load Balancer
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  'Create Load Balancer'
+                )}
               </Button>
             </div>
           </form>

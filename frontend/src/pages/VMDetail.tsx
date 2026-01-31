@@ -68,15 +68,19 @@ import { EditProvisioningModal } from '@/components/vm/EditProvisioningModal';
 import { EditAdvancedOptionsModal } from '@/components/vm/EditAdvancedOptionsModal';
 import { CDROMModal, type CDROMDevice } from '@/components/vm/CDROMModal';
 import { VMLogsPanel } from '@/components/vm/VMLogsPanel';
+import { VMNetworkPanel } from '@/components/vm/VMNetworkPanel';
 import { type VirtualMachine, type PowerState } from '@/types/models';
 import { useVM, useStartVM, useStopVM, useRebootVM, usePauseVM, useResumeVM, useSuspendVM, useResetVMState, useDeleteVM, useUpdateVM, useAttachDisk, useDetachDisk, useResizeDisk, useAttachNIC, useDetachNIC, useVMEvents, useAttachCDROM, useDetachCDROM, useMountISO, useEjectISO, type ApiVM } from '@/hooks/useVMs';
 import { useApiConnection } from '@/hooks/useDashboard';
+import { useNode } from '@/hooks/useNodes';
 import { useSnapshots, useCreateSnapshot, useRevertToSnapshot, useDeleteSnapshot, formatSnapshotSize, type ApiSnapshot } from '@/hooks/useSnapshots';
 import { showInfo, showSuccess, showError } from '@/lib/toast';
 
 // Convert API VM to display format
 function apiToDisplayVM(apiVm: ApiVM): VirtualMachine {
   const state = (apiVm.status?.state || 'STOPPED') as PowerState;
+  const guestInfo = apiVm.status?.guestInfo;
+  
   return {
     id: apiVm.id,
     name: apiVm.name,
@@ -84,32 +88,40 @@ function apiToDisplayVM(apiVm: ApiVM): VirtualMachine {
     description: apiVm.description || '',
     labels: apiVm.labels || {},
     spec: {
-      cpu: { cores: apiVm.spec?.cpu?.cores || 1, sockets: 1, model: 'host' },
+      cpu: { 
+        cores: apiVm.spec?.cpu?.cores || 1, 
+        sockets: apiVm.spec?.cpu?.sockets || 1, 
+        model: 'host' 
+      },
       memory: { sizeMib: apiVm.spec?.memory?.sizeMib || 1024 },
       disks: (apiVm.spec?.disks || []).map((d, i) => ({
         id: `disk-${i}`,
         sizeGib: d.sizeGib || 0,
         bus: 'virtio',
       })),
-      nics: [{ id: 'nic-0', networkId: 'default', macAddress: '00:00:00:00:00:00' }],
+      nics: (apiVm.spec?.nics || []).map((n, i) => ({ 
+        id: `nic-${i}`, 
+        networkId: n.networkId || 'default', 
+        macAddress: '00:00:00:00:00:00' 
+      })),
     },
     status: {
       state,
       nodeId: apiVm.status?.nodeId || '',
       ipAddresses: apiVm.status?.ipAddresses || [],
       resourceUsage: {
-        cpuUsagePercent: apiVm.status?.resourceUsage?.cpuUsagePercent || 0,
+        cpuUsagePercent: apiVm.status?.resourceUsage?.cpuUsagePercent || apiVm.status?.resourceUsage?.cpuPercent || 0,
         memoryUsedBytes: (apiVm.status?.resourceUsage?.memoryUsedMib || 0) * 1024 * 1024,
         memoryAllocatedBytes: (apiVm.spec?.memory?.sizeMib || 1024) * 1024 * 1024,
         diskReadIops: 0,
         diskWriteIops: 0,
-        networkRxBytes: 0,
-        networkTxBytes: 0,
+        networkRxBytes: apiVm.status?.resourceUsage?.networkRxBytesPerSec || 0,
+        networkTxBytes: apiVm.status?.resourceUsage?.networkTxBytesPerSec || 0,
       },
       guestInfo: {
-        osName: 'Linux',
-        hostname: apiVm.name,
-        agentVersion: '1.0.0',
+        osName: guestInfo?.osName || 'Linux',
+        hostname: guestInfo?.hostname || apiVm.name,
+        agentVersion: guestInfo?.agentVersion || '',
         uptimeSeconds: 0,
       },
     },
@@ -167,6 +179,20 @@ export function VMDetail() {
   // API connection and data
   const { data: isConnected = false } = useApiConnection();
   const { data: apiVm, isLoading } = useVM(id || '', !!isConnected && !!id);
+  
+  // Fetch node info to resolve hostname from nodeId
+  const nodeId = apiVm?.status?.nodeId;
+  const { data: nodeInfo, isError: nodeError } = useNode(nodeId || '', !!isConnected && !!nodeId);
+  
+  // Helper to get host display name (hostname or truncated UUID)
+  const getHostDisplayName = () => {
+    if (nodeInfo?.hostname) return nodeInfo.hostname;
+    if (nodeId) {
+      // If we have a nodeId but no hostname, show truncated UUID
+      return nodeId.length > 8 ? `${nodeId.substring(0, 8)}...` : nodeId;
+    }
+    return '—';
+  };
 
   // Mutations
   const startVM = useStartVM();
@@ -859,7 +885,7 @@ export function VMDetail() {
                   <InfoRow label="Description" value={vm.description || '—'} />
                   <InfoRow label="Project" value={vm.projectId} />
                   <InfoRow label="Created" value={new Date(vm.createdAt).toLocaleDateString()} />
-                  <InfoRow label="Host" value={vm.status.nodeId || '—'} />
+                  <InfoRow label="Host" value={getHostDisplayName()} />
                   <InfoRow label="Guest OS" value={vm.status.guestInfo.osName} />
                   <InfoRow label="Hostname" value={vm.status.guestInfo.hostname} />
                   <InfoRow label="Agent Version" value={vm.status.guestInfo.agentVersion} />
@@ -977,7 +1003,7 @@ export function VMDetail() {
                   <StatRow
                     icon={<Server className="w-4 h-4" />}
                     label="Host"
-                    value={vm.status.nodeId || 'Not assigned'}
+                    value={getHostDisplayName()}
                   />
                   <StatRow
                     icon={<Activity className="w-4 h-4" />}
@@ -1415,65 +1441,14 @@ export function VMDetail() {
 
         {/* Network Tab */}
         <TabsContent value="network">
-          <div className="bg-bg-surface rounded-xl border border-border shadow-floating overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <h3 className="text-lg font-semibold text-text-primary">Network Interfaces</h3>
-              <Button size="sm" onClick={() => setIsAddNICModalOpen(true)}>
-                <Network className="w-4 h-4" />
-                Add NIC
-              </Button>
-            </div>
-            {vm.spec.nics.length === 0 ? (
-              <div className="text-center py-12">
-                <Network className="w-12 h-12 mx-auto text-text-muted mb-4" />
-                <h4 className="text-lg font-medium text-text-primary mb-2">No Network Interfaces</h4>
-                <p className="text-text-muted mb-4">
-                  This VM has no network interfaces
-                </p>
-                <Button size="sm" onClick={() => setIsAddNICModalOpen(true)}>
-                  <Network className="w-4 h-4" />
-                  Add NIC
-                </Button>
-              </div>
-            ) : (
-              <table className="w-full">
-                <thead className="bg-bg-elevated/50">
-                  <tr className="text-xs font-medium text-text-muted uppercase">
-                    <th className="px-6 py-3 text-left">Device</th>
-                    <th className="px-6 py-3 text-left">Network</th>
-                    <th className="px-6 py-3 text-left">MAC Address</th>
-                    <th className="px-6 py-3 text-left">IP Address</th>
-                    <th className="px-6 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {vm.spec.nics.map((nic, index) => (
-                    <tr key={nic.id} className="hover:bg-bg-hover">
-                      <td className="px-6 py-4 text-sm text-text-primary font-mono">eth{index}</td>
-                      <td className="px-6 py-4 text-sm text-text-secondary">{nic.networkId}</td>
-                      <td className="px-6 py-4 text-sm text-text-secondary font-mono">
-                        {nic.macAddress || '—'}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-text-secondary font-mono">
-                        {vm.status.ipAddresses[index] || '—'}
-                      </td>
-                      <td className="px-6 py-4 text-right space-x-1">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleRemoveNIC(nic.id)}
-                          disabled={index === 0} // Can't remove primary NIC
-                          title={index === 0 ? 'Cannot remove primary NIC' : 'Remove NIC'}
-                        >
-                          Remove
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+          <VMNetworkPanel
+            vmId={id || ''}
+            vmState={vm.status.state}
+            nics={vm.spec.nics}
+            ipAddresses={vm.status.ipAddresses}
+            onAddNIC={() => setIsAddNICModalOpen(true)}
+            onRemoveNIC={handleRemoveNIC}
+          />
         </TabsContent>
 
         {/* Configuration Tab */}

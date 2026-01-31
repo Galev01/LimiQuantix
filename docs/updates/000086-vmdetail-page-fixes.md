@@ -1,7 +1,7 @@
 # VMDetail Page Fixes and Enhancements
 
 **Document ID:** 000086  
-**Date:** January 24, 2026  
+**Date:** January 24, 2026 (Updated: January 31, 2026)  
 **Status:** Implemented  
 **Purpose:** Document fixes and enhancements to the VMDetail.tsx page in the Quantix-vDC frontend
 
@@ -228,7 +228,164 @@ These endpoints should be implemented in the backend `VMService` if not already 
 
 ---
 
+---
+
+## January 31, 2026 Update: Guest Agent Data & Update Modal
+
+### Issue: Stale VM Data Display
+
+**Problem:** VMDetail page showed stale/hardcoded data for:
+- Guest OS (always showed "Linux")
+- Agent Version (empty or "1.0.0")
+- Uptime (always "—")
+- IP Addresses (always "—")
+- Host (showed UUID instead of hostname)
+
+### Root Cause Analysis
+
+The guest agent data flow was broken at multiple points:
+
+1. **Proto Definition**: `VMStatusResponse` in the main proto didn't include `GuestAgentInfo`
+2. **Backend Service**: VM service wasn't extracting guest agent data from node daemon response
+3. **Domain Struct**: `GuestAgent` struct was missing fields for `OSVersion`, `KernelVersion`, `UptimeSeconds`, `IPAddresses`
+4. **Converter**: Not mapping all available fields to protobuf response
+
+### Fixes Applied
+
+#### 1. Proto Updates (`proto/limiquantix/node/v1/node_daemon.proto`)
+
+Added `GuestAgentInfo` message to `VMStatusResponse`:
+
+```protobuf
+message VMStatusResponse {
+  string vm_id = 1;
+  string name = 2;
+  PowerState state = 3;
+  ResourceUsage resource_usage = 4;
+  google.protobuf.Timestamp started_at = 5;
+  GuestAgentInfo guest_agent = 6;  // NEW
+}
+
+message GuestAgentInfo {
+  bool connected = 1;
+  string version = 2;
+  string os_name = 3;
+  string os_version = 4;
+  string kernel_version = 5;
+  string hostname = 6;
+  repeated string ip_addresses = 7;
+  GuestResourceUsage resource_usage = 8;
+  repeated string capabilities = 9;
+}
+```
+
+#### 2. Domain Struct (`backend/internal/domain/vm.go`)
+
+Extended `GuestAgent` struct:
+
+```go
+type GuestAgent struct {
+    Installed     bool     `json:"installed"`
+    Version       string   `json:"version,omitempty"`
+    Hostname      string   `json:"hostname,omitempty"`
+    OS            string   `json:"os,omitempty"`
+    OSVersion     string   `json:"os_version,omitempty"`      // NEW
+    KernelVersion string   `json:"kernel_version,omitempty"`  // NEW
+    UptimeSeconds uint64   `json:"uptime_seconds,omitempty"`  // NEW
+    IPAddresses   []string `json:"ip_addresses,omitempty"`    // NEW
+}
+```
+
+#### 3. Backend Service (`backend/internal/services/vm/service.go`)
+
+Added guest agent extraction when querying VM status:
+
+```go
+// Extract guest agent info if available
+if status.GuestAgent != nil && status.GuestAgent.Connected {
+    vm.Status.GuestAgent = &domain.GuestAgent{
+        Installed:     true,
+        Version:       status.GuestAgent.Version,
+        Hostname:      status.GuestAgent.Hostname,
+        OS:            status.GuestAgent.OsName,
+        OSVersion:     status.GuestAgent.OsVersion,
+        KernelVersion: status.GuestAgent.KernelVersion,
+        IPAddresses:   status.GuestAgent.IpAddresses,
+    }
+    // Extract uptime from guest resource usage
+    if status.GuestAgent.ResourceUsage != nil {
+        vm.Status.GuestAgent.UptimeSeconds = status.GuestAgent.ResourceUsage.UptimeSeconds
+    }
+}
+```
+
+#### 4. Converter (`backend/internal/services/vm/converter.go`)
+
+Map all guest agent fields:
+
+```go
+if status.GuestAgent != nil {
+    result.GuestInfo = &computev1.GuestInfo{
+        Hostname:      status.GuestAgent.Hostname,
+        OsName:        status.GuestAgent.OS,
+        OsVersion:     status.GuestAgent.OSVersion,
+        KernelVersion: status.GuestAgent.KernelVersion,
+        AgentVersion:  status.GuestAgent.Version,
+        UptimeSeconds: status.GuestAgent.UptimeSeconds,
+    }
+    if len(status.GuestAgent.IPAddresses) > 0 {
+        result.IpAddresses = status.GuestAgent.IPAddresses
+    }
+}
+```
+
+#### 5. Frontend Host Hostname (`frontend/src/pages/VMDetail.tsx`)
+
+Added `useNode` hook to resolve hostname from nodeId:
+
+```typescript
+const nodeId = apiVm?.status?.nodeId;
+const { data: nodeInfo } = useNode(nodeId || '', !!isConnected && !!nodeId);
+
+const getHostDisplayName = () => {
+  if (nodeInfo?.hostname) return nodeInfo.hostname;
+  if (nodeId) return nodeId.length > 8 ? `${nodeId.substring(0, 8)}...` : nodeId;
+  return '—';
+};
+```
+
+### Update In Progress Modal
+
+**New Component:** `frontend/src/components/UpdateInProgressModal.tsx`
+
+Features:
+- Displays when QvDC update is being applied
+- Shows component update progress (Dashboard, Control Plane, Migrations)
+- Auto-reconnects when service restarts
+- Reloads page when update completes
+
+**Integration:** Added to `App.tsx` via `UpdateMonitor` component that monitors `useVDCUpdateStatus()`.
+
+### Data Flow (After Fix)
+
+```
+Guest Agent (inside VM)
+    ↓ TelemetryReport via virtio-serial
+Node Daemon (qx-node)
+    ↓ Caches in GuestAgentInfo
+    ↓ Returns in VMStatusResponse.guest_agent (gRPC)
+Control Plane (backend)
+    ↓ Extracts to domain.GuestAgent
+    ↓ Stores in database
+    ↓ Converts to computev1.GuestInfo
+Frontend
+    ↓ Displays in VMDetail page
+```
+
+---
+
 ## Related Documentation
 
 - [Cloud Image Setup Guide](../Provisioning/000054-cloud-image-setup-guide.md)
 - [VM Creation Wizard](../ui/000015-vm-creation-wizard.md)
+- [OTA Update System](./000081-ota-update-system.md)

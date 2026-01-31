@@ -12,7 +12,7 @@ import {
   Check,
   ExternalLink
 } from 'lucide-react';
-import { formatDistanceToNow, format } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 
 interface ISOInfo {

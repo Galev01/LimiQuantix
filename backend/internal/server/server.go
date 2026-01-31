@@ -59,6 +59,8 @@ type Server struct {
 	// Memory-only repositories (no PostgreSQL equivalent yet)
 	networkRepo           *memory.NetworkRepository
 	securityGroupRepo     *memory.SecurityGroupRepository
+	loadBalancerRepo      *memory.LoadBalancerRepository
+	vpnRepo               *memory.VpnRepository
 	registrationTokenRepo *memory.RegistrationTokenRepository
 
 	// Cluster repository (PostgreSQL - required for FK constraint with nodes)
@@ -91,6 +93,8 @@ type Server struct {
 	clusterService       *clusterservice.Service
 	networkService       *networkservice.NetworkService
 	securityGroupService *networkservice.SecurityGroupService
+	loadBalancerService  *networkservice.LoadBalancerService
+	vpnService           *networkservice.VpnServiceHandler
 	imageService         *storageservice.ImageService
 	ovaService           *storageservice.OVAService
 	poolService          *storageservice.PoolService
@@ -235,6 +239,8 @@ func (s *Server) initRepositories() {
 	// These remain in-memory for now (PostgreSQL implementations can be added later)
 	s.networkRepo = memory.NewNetworkRepository()
 	s.securityGroupRepo = memory.NewSecurityGroupRepository()
+	s.loadBalancerRepo = memory.NewLoadBalancerRepository()
+	s.vpnRepo = memory.NewVpnRepository()
 	s.registrationTokenRepo = memory.NewRegistrationTokenRepository()
 
 	// Cluster repository - requires PostgreSQL for FK constraint with nodes table
@@ -330,6 +336,8 @@ func (s *Server) initServices() {
 	// Network services
 	s.networkService = networkservice.NewNetworkService(s.networkRepo, s.logger)
 	s.securityGroupService = networkservice.NewSecurityGroupService(s.securityGroupRepo, s.logger)
+	s.loadBalancerService = networkservice.NewLoadBalancerService(s.loadBalancerRepo, s.logger)
+	s.vpnService = networkservice.NewVpnServiceHandler(s.vpnRepo, s.logger)
 
 	// Storage services
 	s.imageService = storageservice.NewImageService(s.imageRepo, s.logger)
@@ -517,6 +525,16 @@ func (s *Server) registerRoutes() {
 	sgPath, sgHandler := networkv1connect.NewSecurityGroupServiceHandler(s.securityGroupService)
 	s.mux.Handle(sgPath, sgHandler)
 	s.logger.Info("Registered SecurityGroup service", zap.String("path", sgPath))
+
+	// LoadBalancer Service
+	lbPath, lbHandler := networkv1connect.NewLoadBalancerServiceHandler(s.loadBalancerService)
+	s.mux.Handle(lbPath, lbHandler)
+	s.logger.Info("Registered LoadBalancer service", zap.String("path", lbPath))
+
+	// VPN Service
+	vpnPath, vpnHandler := networkv1connect.NewVpnServiceManagerHandler(s.vpnService)
+	s.mux.Handle(vpnPath, vpnHandler)
+	s.logger.Info("Registered VPN service", zap.String("path", vpnPath))
 
 	// =========================================================================
 	// Connect-RPC Services - Storage

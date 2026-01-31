@@ -1039,6 +1039,314 @@ export const securityGroupApi = {
 };
 
 // =============================================================================
+// Load Balancer Service API
+// =============================================================================
+
+export interface ApiLoadBalancer {
+  id: string;
+  name: string;
+  description?: string;
+  projectId: string;
+  labels?: Record<string, string>;
+  spec?: {
+    networkId?: string;
+    subnetId?: string;
+    vipAddress?: string;
+    listeners?: ApiListener[];
+    pools?: ApiPool[];
+  };
+  status?: {
+    phase?: 'UNKNOWN' | 'PENDING' | 'ACTIVE' | 'ERROR' | 'DELETING';
+    provisioningStatus?: string;
+    operatingStatus?: string;
+    vipAddress?: string;
+    vipPortId?: string;
+    errorMessage?: string;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ApiListener {
+  id?: string;
+  name?: string;
+  protocol?: 'TCP' | 'HTTP' | 'HTTPS' | 'UDP';
+  port?: number;
+  defaultPoolId?: string;
+  connectionLimit?: number;
+}
+
+export interface ApiPool {
+  id?: string;
+  name?: string;
+  algorithm?: 'ROUND_ROBIN' | 'LEAST_CONNECTIONS' | 'SOURCE_IP' | 'WEIGHTED_ROUND_ROBIN';
+  protocol?: 'TCP' | 'HTTP' | 'HTTPS' | 'UDP';
+  members?: ApiPoolMember[];
+  healthMonitor?: ApiHealthMonitor;
+}
+
+export interface ApiPoolMember {
+  id?: string;
+  address: string;
+  port: number;
+  weight?: number;
+  adminStateUp?: boolean;
+  subnetId?: string;
+}
+
+export interface ApiHealthMonitor {
+  type?: 'PING' | 'TCP' | 'HTTP' | 'HTTPS';
+  delay?: number;
+  timeout?: number;
+  maxRetries?: number;
+  httpMethod?: string;
+  urlPath?: string;
+  expectedCodes?: string;
+}
+
+export interface LoadBalancerListResponse {
+  loadBalancers: ApiLoadBalancer[];
+  nextPageToken?: string;
+  totalCount: number;
+}
+
+export interface LoadBalancerStats {
+  loadBalancerId: string;
+  activeConnections: number;
+  totalConnections: number;
+  bytesIn: number;
+  bytesOut: number;
+  requests: number;
+  listenerStats?: Array<{
+    listenerId: string;
+    activeConnections: number;
+    totalConnections: number;
+    bytesIn: number;
+    bytesOut: number;
+  }>;
+  memberStats?: Array<{
+    poolId: string;
+    memberId: string;
+    address: string;
+    healthy: boolean;
+    activeConnections: number;
+    totalConnections: number;
+    bytesIn: number;
+    bytesOut: number;
+  }>;
+}
+
+export const loadBalancerApi = {
+  async list(params?: { projectId?: string; networkId?: string; pageSize?: number }): Promise<LoadBalancerListResponse> {
+    return apiCall<LoadBalancerListResponse>(
+      'limiquantix.network.v1.LoadBalancerService',
+      'ListLoadBalancers',
+      params || {}
+    );
+  },
+
+  async get(id: string): Promise<ApiLoadBalancer> {
+    return apiCall<ApiLoadBalancer>(
+      'limiquantix.network.v1.LoadBalancerService',
+      'GetLoadBalancer',
+      { id }
+    );
+  },
+
+  async create(data: {
+    name: string;
+    description?: string;
+    projectId: string;
+    labels?: Record<string, string>;
+    spec?: {
+      networkId?: string;
+      subnetId?: string;
+      vipAddress?: string;
+      listeners?: ApiListener[];
+      pools?: ApiPool[];
+    };
+  }): Promise<ApiLoadBalancer> {
+    return apiCall<ApiLoadBalancer>(
+      'limiquantix.network.v1.LoadBalancerService',
+      'CreateLoadBalancer',
+      data
+    );
+  },
+
+  async update(data: {
+    id: string;
+    description?: string;
+    labels?: Record<string, string>;
+  }): Promise<ApiLoadBalancer> {
+    return apiCall<ApiLoadBalancer>(
+      'limiquantix.network.v1.LoadBalancerService',
+      'UpdateLoadBalancer',
+      data
+    );
+  },
+
+  async delete(id: string): Promise<void> {
+    await apiCall<void>(
+      'limiquantix.network.v1.LoadBalancerService',
+      'DeleteLoadBalancer',
+      { id }
+    );
+  },
+
+  async addListener(loadBalancerId: string, listener: ApiListener): Promise<ApiLoadBalancer> {
+    return apiCall<ApiLoadBalancer>(
+      'limiquantix.network.v1.LoadBalancerService',
+      'AddListener',
+      { loadBalancerId, listener }
+    );
+  },
+
+  async removeListener(loadBalancerId: string, listenerId: string): Promise<ApiLoadBalancer> {
+    return apiCall<ApiLoadBalancer>(
+      'limiquantix.network.v1.LoadBalancerService',
+      'RemoveListener',
+      { loadBalancerId, listenerId }
+    );
+  },
+
+  async addPoolMember(loadBalancerId: string, poolId: string, member: ApiPoolMember): Promise<ApiLoadBalancer> {
+    return apiCall<ApiLoadBalancer>(
+      'limiquantix.network.v1.LoadBalancerService',
+      'AddPoolMember',
+      { loadBalancerId, poolId, member }
+    );
+  },
+
+  async removePoolMember(loadBalancerId: string, poolId: string, memberId: string): Promise<ApiLoadBalancer> {
+    return apiCall<ApiLoadBalancer>(
+      'limiquantix.network.v1.LoadBalancerService',
+      'RemovePoolMember',
+      { loadBalancerId, poolId, memberId }
+    );
+  },
+
+  async getStats(id: string): Promise<LoadBalancerStats> {
+    return apiCall<LoadBalancerStats>(
+      'limiquantix.network.v1.LoadBalancerService',
+      'GetLoadBalancerStats',
+      { id }
+    );
+  },
+};
+
+// =============================================================================
+// VPN Service API
+// =============================================================================
+
+export interface ApiVpnService {
+  id: string;
+  name: string;
+  description?: string;
+  projectId: string;
+  routerId?: string;
+  externalIp?: string;
+  connections?: ApiVpnConnection[];
+  status?: {
+    phase?: 'UNKNOWN' | 'PENDING' | 'ACTIVE' | 'DOWN' | 'ERROR';
+    errorMessage?: string;
+  };
+  createdAt?: string;
+}
+
+export interface ApiVpnConnection {
+  id?: string;
+  name?: string;
+  peerAddress?: string;
+  peerId?: string;
+  psk?: string;
+  localCidrs?: string[];
+  peerCidrs?: string[];
+}
+
+export interface VpnListResponse {
+  vpnServices: ApiVpnService[];
+  nextPageToken?: string;
+  totalCount: number;
+}
+
+export interface VpnTunnelStatus {
+  vpnId: string;
+  tunnels: Array<{
+    connectionId: string;
+    peerAddress: string;
+    status: 'UNKNOWN' | 'DOWN' | 'NEGOTIATING' | 'UP';
+    bytesIn: number;
+    bytesOut: number;
+    packetsIn: number;
+    packetsOut: number;
+  }>;
+}
+
+export const vpnApi = {
+  async list(params?: { projectId?: string; pageSize?: number }): Promise<VpnListResponse> {
+    return apiCall<VpnListResponse>(
+      'limiquantix.network.v1.VpnServiceManager',
+      'ListVpns',
+      params || {}
+    );
+  },
+
+  async get(id: string): Promise<ApiVpnService> {
+    return apiCall<ApiVpnService>(
+      'limiquantix.network.v1.VpnServiceManager',
+      'GetVpn',
+      { id }
+    );
+  },
+
+  async create(data: {
+    name: string;
+    description?: string;
+    projectId: string;
+    routerId?: string;
+    connections?: ApiVpnConnection[];
+  }): Promise<ApiVpnService> {
+    return apiCall<ApiVpnService>(
+      'limiquantix.network.v1.VpnServiceManager',
+      'CreateVpn',
+      data
+    );
+  },
+
+  async delete(id: string): Promise<void> {
+    await apiCall<void>(
+      'limiquantix.network.v1.VpnServiceManager',
+      'DeleteVpn',
+      { id }
+    );
+  },
+
+  async addConnection(vpnId: string, connection: ApiVpnConnection): Promise<ApiVpnService> {
+    return apiCall<ApiVpnService>(
+      'limiquantix.network.v1.VpnServiceManager',
+      'AddConnection',
+      { vpnId, connection }
+    );
+  },
+
+  async removeConnection(vpnId: string, connectionId: string): Promise<ApiVpnService> {
+    return apiCall<ApiVpnService>(
+      'limiquantix.network.v1.VpnServiceManager',
+      'RemoveConnection',
+      { vpnId, connectionId }
+    );
+  },
+
+  async getStatus(vpnId: string): Promise<VpnTunnelStatus> {
+    return apiCall<VpnTunnelStatus>(
+      'limiquantix.network.v1.VpnServiceManager',
+      'GetVpnStatus',
+      { vpnId }
+    );
+  },
+};
+
+// =============================================================================
 // Storage Service API (placeholder - not yet in backend)
 // =============================================================================
 

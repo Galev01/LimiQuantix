@@ -360,3 +360,228 @@ func formatAllowedIPs(subnets []string) string {
 	}
 	return result
 }
+
+// =============================================================================
+// VPN HIGH AVAILABILITY
+// =============================================================================
+
+// VpnHAConfig holds HA configuration for a VPN service.
+type VpnHAConfig struct {
+	// Enabled indicates if HA is enabled
+	Enabled bool
+	// FloatingIPID is the floating IP used for the VPN endpoint
+	FloatingIPID string
+	// PrimaryNodeID is the current primary node
+	PrimaryNodeID string
+	// StandbyNodeID is the standby node (if any)
+	StandbyNodeID string
+	// HealthCheckInterval is how often to check primary health
+	HealthCheckInterval time.Duration
+	// FailoverTimeout is how long to wait before declaring primary dead
+	FailoverTimeout time.Duration
+}
+
+// VpnHAState holds the HA state for a VPN service.
+type VpnHAState struct {
+	// LastHealthCheck is when we last successfully checked the primary
+	LastHealthCheck time.Time
+	// PrimaryHealthy indicates if primary is healthy
+	PrimaryHealthy bool
+	// FailoverCount is how many failovers have occurred
+	FailoverCount int
+	// LastFailover is when the last failover occurred
+	LastFailover time.Time
+}
+
+// VpnHAManager manages VPN high availability.
+type VpnHAManager struct {
+	vpnManager *VpnServiceManager
+	logger     *zap.Logger
+
+	// HA configs per VPN service
+	configs map[string]*VpnHAConfig
+	// HA state per VPN service
+	states map[string]*VpnHAState
+	// Node health checker function
+	nodeHealthFn func(nodeID string) bool
+	// Floating IP reassociation function
+	reassociateFloatingIP func(ctx context.Context, floatingIPID, nodeID string) error
+	// Deploy WireGuard function
+	deployWireGuard func(ctx context.Context, nodeID string, vpn *domain.VpnService) error
+}
+
+// NewVpnHAManager creates a new VPN HA manager.
+func NewVpnHAManager(vpnManager *VpnServiceManager, logger *zap.Logger) *VpnHAManager {
+	return &VpnHAManager{
+		vpnManager: vpnManager,
+		logger:     logger.Named("vpn-ha"),
+		configs:    make(map[string]*VpnHAConfig),
+		states:     make(map[string]*VpnHAState),
+	}
+}
+
+// SetNodeHealthChecker sets the function to check node health.
+func (m *VpnHAManager) SetNodeHealthChecker(fn func(nodeID string) bool) {
+	m.nodeHealthFn = fn
+}
+
+// SetFloatingIPReassociator sets the function to reassociate floating IPs.
+func (m *VpnHAManager) SetFloatingIPReassociator(fn func(ctx context.Context, floatingIPID, nodeID string) error) {
+	m.reassociateFloatingIP = fn
+}
+
+// SetWireGuardDeployer sets the function to deploy WireGuard to a node.
+func (m *VpnHAManager) SetWireGuardDeployer(fn func(ctx context.Context, nodeID string, vpn *domain.VpnService) error) {
+	m.deployWireGuard = fn
+}
+
+// EnableHA enables HA for a VPN service.
+func (m *VpnHAManager) EnableHA(ctx context.Context, vpnID string, config VpnHAConfig) error {
+	m.logger.Info("Enabling VPN HA",
+		zap.String("vpn_id", vpnID),
+		zap.String("floating_ip", config.FloatingIPID),
+		zap.String("primary_node", config.PrimaryNodeID),
+	)
+
+	config.Enabled = true
+	if config.HealthCheckInterval == 0 {
+		config.HealthCheckInterval = 10 * time.Second
+	}
+	if config.FailoverTimeout == 0 {
+		config.FailoverTimeout = 30 * time.Second
+	}
+
+	m.configs[vpnID] = &config
+	m.states[vpnID] = &VpnHAState{
+		LastHealthCheck: time.Now(),
+		PrimaryHealthy:  true,
+	}
+
+	return nil
+}
+
+// DisableHA disables HA for a VPN service.
+func (m *VpnHAManager) DisableHA(vpnID string) {
+	m.logger.Info("Disabling VPN HA", zap.String("vpn_id", vpnID))
+	delete(m.configs, vpnID)
+	delete(m.states, vpnID)
+}
+
+// CheckAndFailover checks all HA-enabled VPNs and performs failover if needed.
+func (m *VpnHAManager) CheckAndFailover(ctx context.Context) {
+	for vpnID, config := range m.configs {
+		if !config.Enabled {
+			continue
+		}
+
+		state := m.states[vpnID]
+		if state == nil {
+			continue
+		}
+
+		// Check primary health
+		isHealthy := m.checkNodeHealth(config.PrimaryNodeID)
+		
+		if isHealthy {
+			state.LastHealthCheck = time.Now()
+			state.PrimaryHealthy = true
+		} else {
+			// Check if we've exceeded failover timeout
+			if time.Since(state.LastHealthCheck) > config.FailoverTimeout {
+				m.logger.Warn("VPN primary node unhealthy, initiating failover",
+					zap.String("vpn_id", vpnID),
+					zap.String("primary_node", config.PrimaryNodeID),
+					zap.Duration("downtime", time.Since(state.LastHealthCheck)),
+				)
+				state.PrimaryHealthy = false
+				m.performFailover(ctx, vpnID)
+			}
+		}
+	}
+}
+
+// checkNodeHealth checks if a node is healthy.
+func (m *VpnHAManager) checkNodeHealth(nodeID string) bool {
+	if m.nodeHealthFn == nil {
+		return true // Assume healthy if no checker
+	}
+	return m.nodeHealthFn(nodeID)
+}
+
+// performFailover performs failover for a VPN service.
+func (m *VpnHAManager) performFailover(ctx context.Context, vpnID string) {
+	config := m.configs[vpnID]
+	state := m.states[vpnID]
+	if config == nil || state == nil {
+		return
+	}
+
+	m.logger.Info("Performing VPN failover",
+		zap.String("vpn_id", vpnID),
+		zap.String("from_node", config.PrimaryNodeID),
+		zap.String("to_node", config.StandbyNodeID),
+	)
+
+	// 1. Get VPN config
+	vpn, err := m.vpnManager.Get(ctx, vpnID)
+	if err != nil {
+		m.logger.Error("Failed to get VPN for failover", zap.Error(err))
+		return
+	}
+
+	// 2. Deploy WireGuard to standby node
+	if m.deployWireGuard != nil && config.StandbyNodeID != "" {
+		if err := m.deployWireGuard(ctx, config.StandbyNodeID, vpn); err != nil {
+			m.logger.Error("Failed to deploy WireGuard to standby", zap.Error(err))
+			return
+		}
+	}
+
+	// 3. Reassociate floating IP
+	if m.reassociateFloatingIP != nil && config.FloatingIPID != "" {
+		if err := m.reassociateFloatingIP(ctx, config.FloatingIPID, config.StandbyNodeID); err != nil {
+			m.logger.Error("Failed to reassociate floating IP", zap.Error(err))
+			return
+		}
+	}
+
+	// 4. Update config (swap primary and standby)
+	oldPrimary := config.PrimaryNodeID
+	config.PrimaryNodeID = config.StandbyNodeID
+	config.StandbyNodeID = oldPrimary
+
+	// 5. Update state
+	state.FailoverCount++
+	state.LastFailover = time.Now()
+	state.LastHealthCheck = time.Now()
+	state.PrimaryHealthy = true
+
+	m.logger.Info("VPN failover completed",
+		zap.String("vpn_id", vpnID),
+		zap.String("new_primary", config.PrimaryNodeID),
+		zap.Int("failover_count", state.FailoverCount),
+	)
+}
+
+// GetHAStatus returns the HA status for a VPN service.
+func (m *VpnHAManager) GetHAStatus(vpnID string) (*VpnHAConfig, *VpnHAState) {
+	return m.configs[vpnID], m.states[vpnID]
+}
+
+// StartMonitoring starts the HA monitoring loop.
+func (m *VpnHAManager) StartMonitoring(ctx context.Context) {
+	m.logger.Info("Starting VPN HA monitoring")
+	
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			m.logger.Info("VPN HA monitoring stopped")
+			return
+		case <-ticker.C:
+			m.CheckAndFailover(ctx)
+		}
+	}
+}

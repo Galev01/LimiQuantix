@@ -246,10 +246,14 @@ type ResourceUsage struct {
 
 // GuestAgent represents guest agent information.
 type GuestAgent struct {
-	Installed bool   `json:"installed"`
-	Version   string `json:"version,omitempty"`
-	Hostname  string `json:"hostname,omitempty"`
-	OS        string `json:"os,omitempty"`
+	Installed     bool     `json:"installed"`
+	Version       string   `json:"version,omitempty"`
+	Hostname      string   `json:"hostname,omitempty"`
+	OS            string   `json:"os,omitempty"`
+	OSVersion     string   `json:"os_version,omitempty"`
+	KernelVersion string   `json:"kernel_version,omitempty"`
+	UptimeSeconds uint64   `json:"uptime_seconds,omitempty"`
+	IPAddresses   []string `json:"ip_addresses,omitempty"`
 }
 
 // ConsoleInfo represents console connection information.

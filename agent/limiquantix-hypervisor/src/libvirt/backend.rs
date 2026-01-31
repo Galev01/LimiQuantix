@@ -96,6 +96,49 @@ impl LibvirtBackend {
         port_value.parse::<u16>().ok()
     }
     
+    /// Get list of disk device names for a VM (e.g., ["vda", "vdb"])
+    fn get_vm_disk_devices(&self, vm_id: &str) -> Result<Vec<String>> {
+        // Use virsh domblklist to get disk devices
+        let output = std::process::Command::new("virsh")
+            .args(["domblklist", vm_id, "--details"])
+            .output()
+            .map_err(|e| HypervisorError::Internal(format!("Failed to list disks: {}", e)))?;
+        
+        if !output.status.success() {
+            // Return default if we can't list disks
+            return Ok(vec!["vda".to_string()]);
+        }
+        
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let mut devices = Vec::new();
+        
+        // Parse output: Type Device Target Source
+        // Skip header lines
+        for line in stdout.lines().skip(2) {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 3 {
+                let device_type = parts[0];
+                let target = parts[2];
+                
+                // Only include disk devices (not cdrom)
+                if device_type == "file" || device_type == "block" {
+                    // Target is like "vda", "vdb", etc.
+                    if target.starts_with("vd") || target.starts_with("sd") || target.starts_with("hd") {
+                        devices.push(target.to_string());
+                    }
+                }
+            }
+        }
+        
+        if devices.is_empty() {
+            // Fallback to vda if parsing failed
+            devices.push("vda".to_string());
+        }
+        
+        debug!(vm_id = %vm_id, devices = ?devices, "Found disk devices");
+        Ok(devices)
+    }
+    
     /// Find the next available PCIe root port index by parsing the domain XML.
     /// This is a helper method for attach_nic to add PCIe root ports on Q35 machines.
     fn find_next_root_port_index(&self, domain: &Domain) -> Result<u32> {
@@ -486,7 +529,7 @@ impl Hypervisor for LibvirtBackend {
         })
     }
     
-    #[instrument(skip(self), fields(vm_id = %vm_id, name = %name, disk_only = %disk_only))]
+    #[instrument(skip(self, options), fields(vm_id = %vm_id, snapshot_name = %options.name))]
     async fn create_snapshot(&self, vm_id: &str, options: &CreateSnapshotOptions) -> Result<SnapshotInfo> {
         info!(
             vm_id = %vm_id,
@@ -507,8 +550,18 @@ impl Hypervisor for LibvirtBackend {
         
         // Determine snapshot strategy:
         // - If include_memory=true and VM is running, use external snapshot with --live
+        // - If include_memory=true but VM is NOT running, we can't capture memory - use disk-only
         // - If include_memory=false, use disk-only snapshot (internal)
         let use_external = options.include_memory && is_running;
+        
+        // Warn if user requested memory but VM is not running
+        if options.include_memory && !is_running {
+            warn!(
+                "Memory snapshot requested but VM is not running. \
+                Cannot capture memory state of a stopped VM. \
+                Creating disk-only snapshot instead."
+            );
+        }
         
         // Create snapshot directory for external snapshots
         let snapshot_dir = format!("/var/lib/libvirt/snapshots/{}", vm_id);
@@ -569,13 +622,13 @@ impl Hypervisor for LibvirtBackend {
             if options.live {
                 args.push("--live".to_string());
             }
-        } else if !options.include_memory {
-            // Disk-only snapshot (internal) - works with any CPU configuration
+        } else {
+            // Not using external snapshot - use disk-only mode
+            // This is REQUIRED for VMs with host-passthrough CPU (invtsc flag)
+            // because internal snapshots with memory state require migration capability
             args.push("--disk-only".to_string());
             info!("Using disk-only snapshot mode (internal)");
         }
-        // If include_memory=true but VM is not running, create normal internal snapshot
-        // (no special flags needed, libvirt will include memory state automatically)
         
         // Add quiesce flag if requested (requires guest agent)
         if options.quiesce && is_running {
@@ -643,49 +696,6 @@ impl Hypervisor for LibvirtBackend {
         })
     }
     
-    /// Get list of disk device names for a VM (e.g., ["vda", "vdb"])
-    fn get_vm_disk_devices(&self, vm_id: &str) -> Result<Vec<String>> {
-        // Use virsh domblklist to get disk devices
-        let output = std::process::Command::new("virsh")
-            .args(["domblklist", vm_id, "--details"])
-            .output()
-            .map_err(|e| HypervisorError::Internal(format!("Failed to list disks: {}", e)))?;
-        
-        if !output.status.success() {
-            // Return default if we can't list disks
-            return Ok(vec!["vda".to_string()]);
-        }
-        
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let mut devices = Vec::new();
-        
-        // Parse output: Type Device Target Source
-        // Skip header lines
-        for line in stdout.lines().skip(2) {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 3 {
-                let device_type = parts[0];
-                let target = parts[2];
-                
-                // Only include disk devices (not cdrom)
-                if device_type == "file" || device_type == "block" {
-                    // Target is like "vda", "vdb", etc.
-                    if target.starts_with("vd") || target.starts_with("sd") || target.starts_with("hd") {
-                        devices.push(target.to_string());
-                    }
-                }
-            }
-        }
-        
-        if devices.is_empty() {
-            // Fallback to vda if parsing failed
-            devices.push("vda".to_string());
-        }
-        
-        debug!(vm_id = %vm_id, devices = ?devices, "Found disk devices");
-        Ok(devices)
-    }
-    
     #[instrument(skip(self), fields(vm_id = %vm_id, snapshot_id = %snapshot_id))]
     async fn revert_snapshot(&self, vm_id: &str, snapshot_id: &str) -> Result<()> {
         info!("Reverting to snapshot");
@@ -715,18 +725,96 @@ impl Hypervisor for LibvirtBackend {
         // Verify domain exists
         let _ = self.get_domain(vm_id)?;
         
-        // Use virsh command as fallback
-        let output = std::process::Command::new("virsh")
-            .args(["snapshot-delete", vm_id, snapshot_id])
-            .output()
-            .map_err(|e| HypervisorError::SnapshotFailed(format!("virsh command failed: {}", e)))?;
+        // Check if this is an external snapshot by looking for external files
+        let snapshot_dir = format!("/var/lib/libvirt/snapshots/{}", vm_id);
+        let memory_file = format!("{}/{}.mem", snapshot_dir, snapshot_id);
+        let is_external = std::path::Path::new(&memory_file).exists();
         
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(HypervisorError::SnapshotFailed(format!("virsh snapshot-delete failed: {}", stderr)));
+        if is_external {
+            info!(snapshot_dir = %snapshot_dir, "Detected external snapshot, cleaning up files");
+            
+            // For external snapshots, we need to:
+            // 1. Merge overlay disks back (blockcommit) - if VM is running
+            // 2. Delete the memory file
+            // 3. Delete the snapshot metadata
+            
+            // Get disk devices to find overlay files
+            let disk_devices = self.get_vm_disk_devices(vm_id)?;
+            
+            // Try to merge each disk overlay (blockcommit)
+            for disk in &disk_devices {
+                let overlay_path = format!("{}/{}-{}.qcow2", snapshot_dir, snapshot_id, disk);
+                if std::path::Path::new(&overlay_path).exists() {
+                    info!(disk = %disk, overlay = %overlay_path, "Merging disk overlay");
+                    
+                    // blockcommit merges the overlay into the base image
+                    let commit_output = std::process::Command::new("virsh")
+                        .args(["blockcommit", vm_id, disk, "--active", "--pivot", "--wait"])
+                        .output();
+                    
+                    match commit_output {
+                        Ok(output) if output.status.success() => {
+                            info!(disk = %disk, "Disk overlay merged successfully");
+                            // Delete the overlay file after successful merge
+                            if let Err(e) = std::fs::remove_file(&overlay_path) {
+                                warn!(error = %e, path = %overlay_path, "Failed to delete overlay file");
+                            }
+                        }
+                        Ok(output) => {
+                            let stderr = String::from_utf8_lossy(&output.stderr);
+                            warn!(disk = %disk, error = %stderr, "blockcommit failed, trying direct delete");
+                            // Try to delete the overlay file anyway
+                            let _ = std::fs::remove_file(&overlay_path);
+                        }
+                        Err(e) => {
+                            warn!(disk = %disk, error = %e, "blockcommit command failed");
+                        }
+                    }
+                }
+            }
+            
+            // Delete memory file
+            if std::path::Path::new(&memory_file).exists() {
+                match std::fs::remove_file(&memory_file) {
+                    Ok(_) => info!(path = %memory_file, "Memory file deleted"),
+                    Err(e) => warn!(error = %e, path = %memory_file, "Failed to delete memory file"),
+                }
+            }
+            
+            // Delete snapshot metadata (--metadata only for external snapshots)
+            let output = std::process::Command::new("virsh")
+                .args(["snapshot-delete", vm_id, snapshot_id, "--metadata"])
+                .output()
+                .map_err(|e| HypervisorError::SnapshotFailed(format!("virsh command failed: {}", e)))?;
+            
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                // Don't fail if metadata already gone
+                if !stderr.contains("not found") {
+                    warn!(error = %stderr, "Failed to delete snapshot metadata");
+                }
+            }
+            
+            // Try to clean up empty snapshot directory
+            if let Ok(entries) = std::fs::read_dir(&snapshot_dir) {
+                if entries.count() == 0 {
+                    let _ = std::fs::remove_dir(&snapshot_dir);
+                }
+            }
+        } else {
+            // Internal snapshot - simple delete
+            let output = std::process::Command::new("virsh")
+                .args(["snapshot-delete", vm_id, snapshot_id])
+                .output()
+                .map_err(|e| HypervisorError::SnapshotFailed(format!("virsh command failed: {}", e)))?;
+            
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(HypervisorError::SnapshotFailed(format!("virsh snapshot-delete failed: {}", stderr)));
+            }
         }
         
-        info!("Snapshot deleted via virsh");
+        info!("Snapshot deleted successfully");
         Ok(())
     }
     
@@ -749,17 +837,36 @@ impl Hypervisor for LibvirtBackend {
             return Ok(Vec::new());
         }
         
+        let snapshot_dir = format!("/var/lib/libvirt/snapshots/{}", vm_id);
+        
         let stdout = String::from_utf8_lossy(&output.stdout);
         let result: Vec<SnapshotInfo> = stdout
             .lines()
             .filter(|line| !line.trim().is_empty())
-            .map(|name| SnapshotInfo {
-                id: name.trim().to_string(),
-                name: name.trim().to_string(),
-                description: String::new(),
-                created_at: chrono::Utc::now(),
-                vm_state: Self::state_from_libvirt(state),
-                parent_id: None,
+            .map(|snapshot_name| {
+                let snapshot_name = snapshot_name.trim();
+                
+                // Check if this is an external snapshot by looking for memory file
+                let memory_file_path = format!("{}/{}.mem", snapshot_dir, snapshot_name);
+                let memory_file_exists = std::path::Path::new(&memory_file_path).exists();
+                let memory_size = if memory_file_exists {
+                    std::fs::metadata(&memory_file_path).ok().map(|m| m.len())
+                } else {
+                    None
+                };
+                
+                SnapshotInfo {
+                    id: snapshot_name.to_string(),
+                    name: snapshot_name.to_string(),
+                    description: String::new(),
+                    created_at: chrono::Utc::now(),
+                    vm_state: Self::state_from_libvirt(state),
+                    parent_id: None,
+                    snapshot_type: if memory_file_exists { SnapshotType::External } else { SnapshotType::Internal },
+                    memory_included: memory_file_exists,
+                    memory_file: if memory_file_exists { Some(memory_file_path) } else { None },
+                    memory_size_bytes: memory_size,
+                }
             })
             .collect();
         

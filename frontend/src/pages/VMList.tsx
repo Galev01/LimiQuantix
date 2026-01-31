@@ -244,7 +244,7 @@ export function VMList() {
     }
     
     // Find the VM to get its details for the modal
-    const vm = vms.find(v => v.id === vmId);
+    const vm = allVMs.find((v: VirtualMachine) => v.id === vmId);
     if (vm) {
       setDeleteModalState({ isOpen: true, vm });
     }

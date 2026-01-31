@@ -1071,6 +1071,32 @@ func (s *Service) ResetVMState(ctx context.Context, vmID string, forceToStopped 
 			)
 			vm.Status.State = newState
 			vm.Status.Message = fmt.Sprintf("State reset from hypervisor (was %s)", previousState)
+
+			// Extract guest agent info if available
+			if status.GuestAgent != nil && status.GuestAgent.Connected {
+				vm.Status.GuestAgent = &domain.GuestAgent{
+					Installed:     true,
+					Version:       status.GuestAgent.Version,
+					Hostname:      status.GuestAgent.Hostname,
+					OS:            status.GuestAgent.OsName,
+					OSVersion:     status.GuestAgent.OsVersion,
+					KernelVersion: status.GuestAgent.KernelVersion,
+					IPAddresses:   status.GuestAgent.IpAddresses,
+				}
+				// Extract uptime from guest resource usage if available
+				if status.GuestAgent.ResourceUsage != nil {
+					vm.Status.GuestAgent.UptimeSeconds = status.GuestAgent.ResourceUsage.UptimeSeconds
+				}
+				// Update IP addresses from guest agent
+				if len(status.GuestAgent.IpAddresses) > 0 {
+					vm.Status.IPAddresses = status.GuestAgent.IpAddresses
+				}
+				logger.Debug("Updated guest agent info from hypervisor",
+					zap.String("hostname", status.GuestAgent.Hostname),
+					zap.String("os", status.GuestAgent.OsName),
+					zap.Strings("ips", status.GuestAgent.IpAddresses),
+				)
+			}
 		}
 	} else {
 		// Force to stopped (either explicitly requested or no node assigned)

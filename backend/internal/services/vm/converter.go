@@ -231,7 +231,16 @@ func convertStatusToProto(status domain.VMStatus) *computev1.VmStatus {
 	// Guest info
 	if status.GuestAgent != nil {
 		result.GuestInfo = &computev1.GuestInfo{
-			Hostname: status.GuestAgent.Hostname,
+			Hostname:      status.GuestAgent.Hostname,
+			OsName:        status.GuestAgent.OS,
+			OsVersion:     status.GuestAgent.OSVersion,
+			KernelVersion: status.GuestAgent.KernelVersion,
+			AgentVersion:  status.GuestAgent.Version,
+			UptimeSeconds: status.GuestAgent.UptimeSeconds,
+		}
+		// Add IP addresses if available
+		if len(status.GuestAgent.IPAddresses) > 0 {
+			result.IpAddresses = status.GuestAgent.IPAddresses
 		}
 	}
 

@@ -24,6 +24,7 @@ mod chassis;
 mod cli;
 mod config;
 mod event_store;
+pub mod health_check;
 mod http_server;
 mod iso_manager;
 mod registration;
@@ -32,6 +33,7 @@ mod service;
 mod state_watcher;
 mod tls;
 pub mod update;
+pub mod wireguard;
 
 pub use chassis::{ChassisConfig, ChassisHealth, ChassisManager};
 

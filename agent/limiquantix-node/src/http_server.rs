@@ -3310,6 +3310,9 @@ struct QuantixAgentPingResponse {
     ip_addresses: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     resource_usage: Option<AgentResourceUsageResponse>,
+    /// Network interfaces from the guest agent
+    #[serde(default)]
+    network_interfaces: Vec<AgentNetworkInterfaceResponse>,
     #[serde(default)]
     capabilities: Vec<String>,
     /// Latest available agent version (for update check)
@@ -3317,6 +3320,21 @@ struct QuantixAgentPingResponse {
     latest_agent_version: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
+}
+
+/// Network interface data from the agent
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct AgentNetworkInterfaceResponse {
+    name: String,
+    mac_address: String,
+    ipv4_addresses: Vec<String>,
+    ipv6_addresses: Vec<String>,
+    is_up: bool,
+    rx_bytes: u64,
+    tx_bytes: u64,
+    rx_packets: u64,
+    tx_packets: u64,
 }
 
 /// Resource usage data from the agent
@@ -3518,6 +3536,7 @@ fn build_disconnected_response(error: Option<String>) -> QuantixAgentPingRespons
         architecture: None,
         ip_addresses: vec![],
         resource_usage: None,
+        network_interfaces: vec![],
         capabilities: vec![],
         latest_agent_version: Some(LATEST_AGENT_VERSION.to_string()),
         error,
@@ -3552,6 +3571,21 @@ fn build_connected_response(agent_info: limiquantix_proto::GuestAgentInfo) -> Qu
         }
     });
 
+    // Convert network interfaces
+    let network_interfaces = agent_info.interfaces.into_iter().map(|iface| {
+        AgentNetworkInterfaceResponse {
+            name: iface.name,
+            mac_address: iface.mac_address,
+            ipv4_addresses: iface.ipv4_addresses,
+            ipv6_addresses: iface.ipv6_addresses,
+            is_up: iface.is_up,
+            rx_bytes: iface.rx_bytes,
+            tx_bytes: iface.tx_bytes,
+            rx_packets: iface.rx_packets,
+            tx_packets: iface.tx_packets,
+        }
+    }).collect();
+
     QuantixAgentPingResponse {
         connected: agent_info.connected,
         version: if agent_info.version.is_empty() { None } else { Some(agent_info.version) },
@@ -3562,6 +3596,7 @@ fn build_connected_response(agent_info: limiquantix_proto::GuestAgentInfo) -> Qu
         architecture: None, // TODO: Add architecture to GuestAgentInfo
         ip_addresses: agent_info.ip_addresses,
         resource_usage,
+        network_interfaces,
         capabilities: agent_info.capabilities,
         latest_agent_version: Some(LATEST_AGENT_VERSION.to_string()),
         error: None,
@@ -3783,6 +3818,7 @@ async fn ping_quantix_agent_inner(
                         kernel_version: if kernel_version.is_empty() { None } else { Some(kernel_version) },
                         architecture: None,
                         ip_addresses,
+                        network_interfaces: vec![],
                         resource_usage: agent_info.resource_usage.map(|ru| AgentResourceUsageResponse {
                             cpu_usage_percent: ru.cpu_usage_percent,
                             memory_total_bytes: ru.memory_total_bytes,
@@ -3921,6 +3957,7 @@ async fn ping_quantix_agent_inner(
                     kernel_version: if kernel_version.is_empty() { None } else { Some(kernel_version) },
                     architecture: None,
                     ip_addresses,
+                    network_interfaces: vec![],
                     resource_usage: None,
                     capabilities: vec![
                         "telemetry".to_string(),
@@ -4319,6 +4356,7 @@ async fn refresh_quantix_agent(
                     kernel_version: None,
                     architecture: None,
                     ip_addresses: vec![],
+                    network_interfaces: vec![],
                     resource_usage: None,
                     capabilities: vec![],
                     latest_agent_version: Some(LATEST_AGENT_VERSION.to_string()),

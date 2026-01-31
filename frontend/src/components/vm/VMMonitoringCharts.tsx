@@ -16,7 +16,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { Cpu, MemoryStick, HardDrive, Network, RefreshCw, Pause, Play, AlertCircle, Info } from 'lucide-react';
+import { Cpu, MemoryStick, HardDrive, Network, RefreshCw, Pause, Play, AlertCircle, Info, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { type ApiVM } from '@/hooks/useVMs';
@@ -171,6 +171,17 @@ export function VMMonitoringCharts({ vm, className }: VMMonitoringChartsProps) {
   // Check if we have real metrics data from the VM
   const hasVMMetrics = currentCpu > 0 || currentMemory > 0 || currentDiskRead > 0 || currentNetIn > 0;
 
+  // State to store agent data for display
+  const [agentData, setAgentData] = useState<{
+    cpu: number;
+    memoryPercent: number;
+    memoryUsed: number;
+    memoryTotal: number;
+    loadAvg: [number, number, number];
+    uptime: number;
+    disks: Array<{ mountPoint: string; usagePercent: number; totalBytes: number; usedBytes: number }>;
+  } | null>(null);
+
   // Fetch metrics from API (polling approach until streaming is implemented)
   const fetchMetrics = useCallback(async () => {
     if (isPaused) return;
@@ -179,6 +190,9 @@ export function VMMonitoringCharts({ vm, className }: VMMonitoringChartsProps) {
     let agentMemory = 0;
     let agentMemoryTotal = 0;
     let agentMemoryUsed = 0;
+    let agentLoadAvg: [number, number, number] = [0, 0, 0];
+    let agentUptime = 0;
+    let agentDisks: Array<{ mountPoint: string; usagePercent: number; totalBytes: number; usedBytes: number }> = [];
     let hasAgentData = false;
     
     try {
@@ -186,16 +200,35 @@ export function VMMonitoringCharts({ vm, className }: VMMonitoringChartsProps) {
       // The agent provides actual guest-side metrics which are more accurate
       const agentResponse = await fetch(`/api/vms/${vm.id}/agent/ping`);
       if (agentResponse.ok) {
-        const agentData = await agentResponse.json();
-        if (agentData.connected && agentData.resourceUsage) {
-          const ru = agentData.resourceUsage;
+        const data = await agentResponse.json();
+        if (data.connected && data.resourceUsage) {
+          const ru = data.resourceUsage;
           agentCpu = ru.cpuUsagePercent || 0;
           agentMemoryTotal = ru.memoryTotalBytes || 0;
           agentMemoryUsed = ru.memoryUsedBytes || 0;
           agentMemory = agentMemoryTotal > 0 ? (agentMemoryUsed / agentMemoryTotal) * 100 : 0;
+          agentLoadAvg = [ru.loadAvg1 || 0, ru.loadAvg5 || 0, ru.loadAvg15 || 0];
+          agentUptime = ru.uptimeSeconds || 0;
+          agentDisks = (ru.disks || []).map((d: any) => ({
+            mountPoint: d.mountPoint || d.mount_point || '/',
+            usagePercent: d.usagePercent || d.usage_percent || 0,
+            totalBytes: d.totalBytes || d.total_bytes || 0,
+            usedBytes: d.usedBytes || d.used_bytes || 0,
+          }));
           hasAgentData = true;
           setHasRealData(true);
           setMetricsError(null);
+          
+          // Store agent data for display
+          setAgentData({
+            cpu: agentCpu,
+            memoryPercent: agentMemory,
+            memoryUsed: agentMemoryUsed,
+            memoryTotal: agentMemoryTotal,
+            loadAvg: agentLoadAvg,
+            uptime: agentUptime,
+            disks: agentDisks,
+          });
         }
       }
     } catch {
@@ -223,6 +256,7 @@ export function VMMonitoringCharts({ vm, className }: VMMonitoringChartsProps) {
       } catch {
         // Silently fail - we'll use simulated data
       }
+      setAgentData(null);
     }
     
     // Use agent data if available, otherwise fall back to VM status
@@ -337,8 +371,8 @@ export function VMMonitoringCharts({ vm, className }: VMMonitoringChartsProps) {
         </div>
       </div>
 
-      {/* Data source indicator */}
-      {!hasVMMetrics && (
+      {/* Data source indicator - show warning only if no VM metrics AND no agent data */}
+      {!hasVMMetrics && !hasRealData && !agentData && (
         <div className="flex items-center gap-2 p-3 bg-warning/10 rounded-lg border border-warning/30">
           <Info className="w-4 h-4 text-warning flex-shrink-0" />
           <p className="text-xs text-text-secondary">
@@ -356,7 +390,7 @@ export function VMMonitoringCharts({ vm, className }: VMMonitoringChartsProps) {
             icon={Cpu}
             color="text-accent"
             data={metrics.cpu}
-            currentValue={currentCpu || metrics.cpu[metrics.cpu.length - 1]?.value || 0}
+            currentValue={agentData?.cpu ?? currentCpu ?? metrics.cpu[metrics.cpu.length - 1]?.value ?? 0}
             unit="%"
           />
           <MetricCard
@@ -364,7 +398,7 @@ export function VMMonitoringCharts({ vm, className }: VMMonitoringChartsProps) {
             icon={MemoryStick}
             color="text-purple-400"
             data={metrics.memory}
-            currentValue={currentMemory || metrics.memory[metrics.memory.length - 1]?.value || 0}
+            currentValue={agentData?.memoryPercent ?? currentMemory ?? metrics.memory[metrics.memory.length - 1]?.value ?? 0}
             unit="%"
           />
           <MetricCard
@@ -411,11 +445,11 @@ export function VMMonitoringCharts({ vm, className }: VMMonitoringChartsProps) {
         <h4 className="text-sm font-medium text-text-primary mb-3">Current Resource Usage</h4>
         <div className="grid grid-cols-4 gap-4">
           <div className="text-center">
-            <div className="text-2xl font-bold text-accent">{(currentCpu || 0).toFixed(1)}%</div>
+            <div className="text-2xl font-bold text-accent">{(agentData?.cpu ?? currentCpu ?? 0).toFixed(1)}%</div>
             <div className="text-xs text-text-muted">CPU</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-purple-400">{(currentMemory || 0).toFixed(1)}%</div>
+            <div className="text-2xl font-bold text-purple-400">{(agentData?.memoryPercent ?? currentMemory ?? 0).toFixed(1)}%</div>
             <div className="text-xs text-text-muted">Memory</div>
           </div>
           <div className="text-center">
@@ -428,6 +462,106 @@ export function VMMonitoringCharts({ vm, className }: VMMonitoringChartsProps) {
           </div>
         </div>
       </div>
+
+      {/* Agent-specific metrics (when available) */}
+      {agentData && (
+        <div className="grid grid-cols-2 gap-4">
+          {/* System Load & Uptime */}
+          <div className="bg-bg-surface rounded-xl border border-border p-4 shadow-floating">
+            <h4 className="text-sm font-medium text-text-primary mb-3 flex items-center gap-2">
+              <Activity className="w-4 h-4 text-accent" />
+              System Load & Uptime
+            </h4>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-text-muted">Load Average (1m / 5m / 15m)</span>
+                <span className="text-sm font-mono text-text-primary">
+                  {agentData.loadAvg[0].toFixed(2)} / {agentData.loadAvg[1].toFixed(2)} / {agentData.loadAvg[2].toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-text-muted">Uptime</span>
+                <span className="text-sm font-mono text-text-primary">
+                  {formatUptime(agentData.uptime)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-text-muted">Memory</span>
+                <span className="text-sm font-mono text-text-primary">
+                  {formatBytes(agentData.memoryUsed)} / {formatBytes(agentData.memoryTotal)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Disk Usage */}
+          <div className="bg-bg-surface rounded-xl border border-border p-4 shadow-floating">
+            <h4 className="text-sm font-medium text-text-primary mb-3 flex items-center gap-2">
+              <HardDrive className="w-4 h-4 text-green-400" />
+              Disk Usage
+            </h4>
+            <div className="space-y-2 max-h-32 overflow-y-auto">
+              {agentData.disks.length > 0 ? (
+                agentData.disks.map((disk, index) => (
+                  <div key={index} className="space-y-1">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-text-muted font-mono truncate max-w-[120px]" title={disk.mountPoint}>
+                        {disk.mountPoint}
+                      </span>
+                      <span className="text-text-primary">
+                        {disk.usagePercent.toFixed(0)}% ({formatBytes(disk.usedBytes)} / {formatBytes(disk.totalBytes)})
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-bg-base rounded-full overflow-hidden">
+                      <div 
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          disk.usagePercent >= 90 ? "bg-error" :
+                          disk.usagePercent >= 75 ? "bg-warning" : "bg-green-500"
+                        )}
+                        style={{ width: `${Math.min(disk.usagePercent, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-xs text-text-muted">No disk information available</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Data source indicator */}
+      {hasRealData && (
+        <div className="flex items-center gap-2 p-2 bg-success/10 rounded-lg border border-success/30">
+          <Info className="w-4 h-4 text-success flex-shrink-0" />
+          <p className="text-xs text-text-secondary">
+            <span className="font-medium text-success">Live metrics from Quantix Agent.</span>{' '}
+            Data is refreshed every 10 seconds.
+          </p>
+        </div>
+      )}
     </div>
   );
+}
+
+// Helper function to format uptime
+function formatUptime(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ${minutes % 60}m`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ${hours % 24}h`;
+}
+
+// Helper function to format bytes
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
 }
