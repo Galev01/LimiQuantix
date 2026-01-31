@@ -3189,6 +3189,8 @@ async fn create_vm(
             // Guest OS profile - determines hardware configuration (timers, CPU mode, video)
             // Values: "rhel", "debian", "fedora", "windows_server", etc.
             guest_os: request.guest_os.unwrap_or_default(),
+            // CPU mode - defaults to "host-model" (empty string) for cluster compatibility
+            cpu_mode: String::new(),
         }),
     };
     
