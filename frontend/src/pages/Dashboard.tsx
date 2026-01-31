@@ -44,6 +44,14 @@ function apiVMToDisplay(vm: ApiVM): VirtualMachine {
   const apiState = vm.status?.state || vm.status?.powerState || 'STOPPED';
   const state: PowerState = stateMap[apiState] || 'STOPPED';
 
+  // Extract guest info from API response (populated by live metrics from node daemon)
+  const guestInfo = vm.status?.guestInfo;
+  const resourceUsage = vm.status?.resourceUsage;
+
+  // Calculate memory used bytes from various possible fields
+  const memoryUsedBytes = resourceUsage?.memoryUsedBytes || 
+    (resourceUsage?.memoryUsedMib ? resourceUsage.memoryUsedMib * 1024 * 1024 : 0);
+
   return {
     id: vm.id,
     name: vm.name,
@@ -65,19 +73,19 @@ function apiVMToDisplay(vm: ApiVM): VirtualMachine {
       nodeId: vm.status?.nodeId || '',
       ipAddresses: vm.status?.ipAddresses || [],
       resourceUsage: {
-        cpuUsagePercent: vm.status?.resourceUsage?.cpuUsagePercent || 0,
-        memoryUsedBytes: (vm.status?.resourceUsage?.memoryUsedMib || 0) * 1024 * 1024,
+        cpuUsagePercent: resourceUsage?.cpuUsagePercent || resourceUsage?.cpuPercent || 0,
+        memoryUsedBytes: memoryUsedBytes,
         memoryAllocatedBytes: (vm.spec?.memory?.sizeMib || 0) * 1024 * 1024,
         diskReadIops: 0,
         diskWriteIops: 0,
-        networkRxBytes: 0,
-        networkTxBytes: 0,
+        networkRxBytes: resourceUsage?.networkRxBytes || 0,
+        networkTxBytes: resourceUsage?.networkTxBytes || 0,
       },
       guestInfo: {
-        osName: 'Linux',
-        hostname: vm.name,
-        agentVersion: '0.0.0',
-        uptimeSeconds: 0,
+        osName: guestInfo?.osName || 'Linux',
+        hostname: guestInfo?.hostname || vm.name,
+        agentVersion: guestInfo?.agentVersion || '0.0.0',
+        uptimeSeconds: guestInfo?.uptimeSeconds || 0,
       },
     },
     createdAt: vm.createdAt || new Date().toISOString(),
@@ -373,7 +381,7 @@ export function Dashboard() {
           </span>
         </div>
         <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 overflow-hidden">
-          <VMTable vms={displayVMs} />
+          <VMTable vms={displayVMs} nodes={displayNodes} />
         </div>
       </motion.div>
     </div>

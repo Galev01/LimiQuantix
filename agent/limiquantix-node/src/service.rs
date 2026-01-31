@@ -1323,6 +1323,17 @@ impl NodeDaemonService for NodeDaemonServiceImpl {
         config.cpu.sockets = if spec.cpu_sockets > 0 { spec.cpu_sockets } else { 1 };
         config.cpu.threads_per_core = if spec.cpu_threads_per_core > 0 { spec.cpu_threads_per_core } else { 1 };
         
+        // Set CPU mode from spec - defaults to "host-model" for cluster compatibility
+        // "host-model" supports live migration and memory snapshots
+        // "host-passthrough" offers max performance but no migration/memory snapshots
+        if !spec.cpu_mode.is_empty() {
+            config.cpu.model = Some(spec.cpu_mode.clone());
+            info!(cpu_mode = %spec.cpu_mode, "Applied CPU mode from spec");
+        } else {
+            config.cpu.model = Some("host-model".to_string());
+            info!("Using default CPU mode: host-model");
+        }
+        
         // Set memory configuration from spec
         config.memory.size_mib = spec.memory_mib;
         

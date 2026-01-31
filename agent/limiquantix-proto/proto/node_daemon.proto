@@ -274,6 +274,12 @@ message VMSpec {
   // This is similar to VMware's Guest OS selection - affects virtual hardware behavior.
   // Values: "rhel", "debian", "fedora", "windows_server", "windows_desktop", "generic_linux", etc.
   string guest_os = 13;
+  
+  // CPU mode - determines CPU emulation mode for the VM.
+  // - "host-model": Cluster-ready, supports live migration and memory snapshots (default)
+  // - "host-passthrough": Maximum performance, but no migration/memory snapshots
+  // If empty, defaults to "host-model" for cluster compatibility.
+  string cpu_mode = 14;
 }
 
 // Cloud-init configuration for automated VM provisioning

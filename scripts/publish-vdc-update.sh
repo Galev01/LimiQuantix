@@ -205,6 +205,30 @@ mkdir -p "$STAGING_DIR"
 
 # Track built artifacts for manifest
 declare -A ARTIFACTS
+# =============================================================================
+# Regenerate Proto Files
+# =============================================================================
+
+log_step "Regenerating proto files..."
+
+cd "$PROJECT_ROOT/proto"
+
+# Check if buf is available
+if ! command -v buf &> /dev/null; then
+    log_warn "buf is not installed. Skipping proto regeneration."
+    log_warn "If you've changed proto files, install buf: https://buf.build/docs/installation"
+else
+    # Run buf generate to regenerate Go and TypeScript proto files
+    log_info "Running buf generate..."
+    if buf generate; then
+        log_info "Proto files regenerated successfully"
+    else
+        log_error "Proto generation failed!"
+        exit 1
+    fi
+fi
+
+cd "$PROJECT_ROOT"
 
 # =============================================================================
 # Build Components

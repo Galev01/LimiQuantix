@@ -9,14 +9,27 @@ import {
 } from 'lucide-react';
 import { cn, formatBytes, formatUptime } from '@/lib/utils';
 import { VMStatusBadge } from './VMStatusBadge';
-import type { VirtualMachine } from '@/types/models';
+import type { VirtualMachine, Node } from '@/types/models';
 
 interface VMTableProps {
   vms: VirtualMachine[];
+  nodes?: Node[];
   onSelect?: (vm: VirtualMachine) => void;
 }
 
-export function VMTable({ vms, onSelect }: VMTableProps) {
+export function VMTable({ vms, nodes = [], onSelect }: VMTableProps) {
+  // Create a lookup map for nodeId -> hostname
+  const nodeHostnameMap = new Map<string, string>();
+  for (const node of nodes) {
+    nodeHostnameMap.set(node.id, node.hostname);
+  }
+
+  // Helper to get hostname from nodeId
+  const getHostname = (nodeId: string): string => {
+    if (!nodeId) return '—';
+    return nodeHostnameMap.get(nodeId) || nodeId;
+  };
+
   return (
     <div className={cn(
       'bg-bg-surface rounded-xl border border-border',
@@ -76,8 +89,8 @@ export function VMTable({ vms, onSelect }: VMTableProps) {
 
             {/* Host */}
             <div className="col-span-2">
-              <p className="text-sm text-text-secondary truncate">
-                {vm.status.nodeId || '—'}
+              <p className="text-sm text-text-secondary truncate" title={vm.status.nodeId}>
+                {getHostname(vm.status.nodeId)}
               </p>
             </div>
 

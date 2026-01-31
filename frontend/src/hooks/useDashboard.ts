@@ -161,9 +161,10 @@ function calculateMetrics(vms: ApiVM[], nodes: ApiNode[]): DashboardMetrics {
     avgCpuUsage: Math.round(totalCpuUsage / nodeCount),
     avgMemoryUsage: Math.round(totalMemoryUsage / nodeCount),
     
-    // Placeholder storage metrics
-    totalStorageGB: Math.round(totalDiskGB) || 1000,
-    usedStorageGB: Math.round(usedDiskGB) || 420,
+    // Storage metrics based on VM disk allocations
+    // Total = sum of all VM disk sizes, Used = 0 until storage service provides actual usage
+    totalStorageGB: Math.round(totalDiskGB) || 0,
+    usedStorageGB: Math.round(usedDiskGB),
     
     // Placeholder alerts
     criticalAlerts: 0,

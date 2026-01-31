@@ -289,6 +289,11 @@ func (s *Service) GetVM(
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	// Enrich running VM with live metrics from node daemon
+	if vm.IsRunning() && vm.Status.NodeID != "" {
+		s.enrichVMWithLiveMetrics(ctx, vm, logger)
+	}
+
 	return connect.NewResponse(ToProto(vm)), nil
 }
 
@@ -325,6 +330,9 @@ func (s *Service) ListVMs(
 		logger.Error("Failed to list VMs", zap.Error(err))
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	// Enrich running VMs with live metrics from node daemons
+	s.enrichVMsWithLiveMetrics(ctx, vms, logger)
 
 	// Build response
 	resp := &computev1.ListVMsResponse{
@@ -1501,6 +1509,117 @@ func buildCloneVMRequest(sourceVM, newVM *domain.VirtualMachine, isLinkedClone b
 }
 
 // ============================================================================
+// Live Metrics Enrichment
+// ============================================================================
+
+// enrichVMsWithLiveMetrics fetches live metrics from node daemons for running VMs.
+// This is called during ListVMs to provide real-time resource usage data.
+func (s *Service) enrichVMsWithLiveMetrics(ctx context.Context, vms []*domain.VirtualMachine, logger *zap.Logger) {
+	if s.daemonPool == nil {
+		return
+	}
+
+	// Group VMs by node for efficient batching
+	vmsByNode := make(map[string][]*domain.VirtualMachine)
+	for _, vm := range vms {
+		if vm.IsRunning() && vm.Status.NodeID != "" {
+			vmsByNode[vm.Status.NodeID] = append(vmsByNode[vm.Status.NodeID], vm)
+		}
+	}
+
+	// Fetch metrics from each node
+	for nodeID, nodeVMs := range vmsByNode {
+		client, err := s.getNodeDaemonClient(ctx, nodeID)
+		if err != nil {
+			logger.Debug("Failed to connect to node daemon for metrics",
+				zap.String("node_id", nodeID),
+				zap.Error(err),
+			)
+			continue
+		}
+
+		// Fetch metrics for each VM on this node
+		for _, vm := range nodeVMs {
+			s.fetchAndApplyVMMetrics(ctx, client, vm, logger)
+		}
+	}
+}
+
+// enrichVMWithLiveMetrics fetches live metrics from the node daemon for a single VM.
+// This is called during GetVM to provide real-time resource usage data.
+func (s *Service) enrichVMWithLiveMetrics(ctx context.Context, vm *domain.VirtualMachine, logger *zap.Logger) {
+	if s.daemonPool == nil || vm.Status.NodeID == "" {
+		return
+	}
+
+	client, err := s.getNodeDaemonClient(ctx, vm.Status.NodeID)
+	if err != nil {
+		logger.Debug("Failed to connect to node daemon for metrics",
+			zap.String("vm_id", vm.ID),
+			zap.String("node_id", vm.Status.NodeID),
+			zap.Error(err),
+		)
+		return
+	}
+
+	s.fetchAndApplyVMMetrics(ctx, client, vm, logger)
+}
+
+// fetchAndApplyVMMetrics fetches VM status from node daemon and applies it to the VM.
+func (s *Service) fetchAndApplyVMMetrics(ctx context.Context, client *node.DaemonClient, vm *domain.VirtualMachine, logger *zap.Logger) {
+	status, err := client.GetVMStatus(ctx, vm.ID)
+	if err != nil {
+		// Log but don't fail - we still have DB data
+		logger.Debug("Failed to fetch VM metrics from node",
+			zap.String("vm_id", vm.ID),
+			zap.Error(err),
+		)
+		return
+	}
+
+	// Apply resource usage metrics
+	if status.ResourceUsage != nil {
+		vm.Status.Resources = domain.ResourceUsage{
+			CPUPercent:    status.ResourceUsage.CpuUsagePercent,
+			MemoryUsedMiB: int64(status.ResourceUsage.MemoryUsedBytes / (1024 * 1024)),
+			DiskReadBps:   int64(status.ResourceUsage.DiskReadBytes),
+			DiskWriteBps:  int64(status.ResourceUsage.DiskWriteBytes),
+			NetworkRxBps:  int64(status.ResourceUsage.NetworkRxBytes),
+			NetworkTxBps:  int64(status.ResourceUsage.NetworkTxBytes),
+		}
+	}
+
+	// Apply guest agent info if available
+	if status.GuestAgent != nil && status.GuestAgent.Connected {
+		vm.Status.GuestAgent = &domain.GuestAgent{
+			Installed:     true,
+			Version:       status.GuestAgent.Version,
+			Hostname:      status.GuestAgent.Hostname,
+			OS:            status.GuestAgent.OsName,
+			OSVersion:     status.GuestAgent.OsVersion,
+			KernelVersion: status.GuestAgent.KernelVersion,
+			IPAddresses:   status.GuestAgent.IpAddresses,
+		}
+
+		// Extract uptime from guest resource usage if available
+		if status.GuestAgent.ResourceUsage != nil {
+			vm.Status.GuestAgent.UptimeSeconds = status.GuestAgent.ResourceUsage.UptimeSeconds
+		}
+
+		// Update IP addresses from guest agent
+		if len(status.GuestAgent.IpAddresses) > 0 {
+			vm.Status.IPAddresses = status.GuestAgent.IpAddresses
+		}
+	}
+
+	logger.Debug("Applied live metrics to VM",
+		zap.String("vm_id", vm.ID),
+		zap.Float64("cpu_percent", vm.Status.Resources.CPUPercent),
+		zap.Int64("memory_used_mib", vm.Status.Resources.MemoryUsedMiB),
+	)
+}
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 
@@ -1593,6 +1712,7 @@ func convertToNodeDaemonCreateRequest(vm *domain.VirtualMachine, spec *computev1
 			CpuCores:          spec.GetCpu().GetCores(),
 			CpuSockets:        spec.GetCpu().GetSockets(),
 			CpuThreadsPerCore: spec.GetCpu().GetThreadsPerCore(),
+			CpuMode:           spec.GetCpu().GetModel(), // Pass CPU mode (host-model, host-passthrough)
 			MemoryMib:         spec.GetMemory().GetSizeMib(),
 			MemoryHugepages:   hugepagesEnabled,
 		},
@@ -1751,7 +1871,18 @@ func (s *Service) CreateSnapshot(
 		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to node: %w", err))
 	}
 
-	resp, err := client.CreateSnapshot(ctx, req.Msg.VmId, req.Msg.Name, req.Msg.Description, req.Msg.Quiesce)
+	// diskOnly is the inverse of includeMemory
+	// When includeMemory=false (default), we use disk-only snapshots which work with any CPU config
+	// When includeMemory=true, we use external snapshots with --live flag (VMware-like)
+	diskOnly := !req.Msg.IncludeMemory
+
+	logger.Info("Creating snapshot on node daemon",
+		zap.Bool("include_memory", req.Msg.IncludeMemory),
+		zap.Bool("disk_only", diskOnly),
+		zap.Bool("quiesce", req.Msg.Quiesce),
+	)
+
+	resp, err := client.CreateSnapshot(ctx, req.Msg.VmId, req.Msg.Name, req.Msg.Description, req.Msg.Quiesce, diskOnly)
 	if err != nil {
 		logger.Error("Failed to create snapshot on node daemon", zap.Error(err))
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create snapshot: %w", err))
@@ -2061,10 +2192,10 @@ func (s *Service) AttachDisk(
 	// Convert proto disk to domain disk
 	diskName := generateDiskID()
 	newDisk := domain.DiskDevice{
-		Name:     diskName,
-		SizeGiB:  int64(req.Msg.Disk.SizeGib),
-		Bus:      strings.ToLower(req.Msg.Disk.Bus.String()),
-		Cache:    "writeback",
+		Name:    diskName,
+		SizeGiB: int64(req.Msg.Disk.SizeGib),
+		Bus:     strings.ToLower(req.Msg.Disk.Bus.String()),
+		Cache:   "writeback",
 	}
 
 	// Add to VM spec
@@ -2638,7 +2769,7 @@ func (s *Service) MountISO(
 		diskCount := len(vm.Spec.Disks)
 		device := fmt.Sprintf("sd%c", 'a'+diskCount+cdromIndex)
 		logger.Info("Calculated CD-ROM device name", zap.String("device", device), zap.Int("disk_count", diskCount), zap.Int("cdrom_index", cdromIndex))
-		
+
 		err = client.ChangeMedia(ctx, req.Msg.VmId, device, req.Msg.IsoPath)
 		if err != nil {
 			logger.Error("Failed to mount ISO on hypervisor", zap.Error(err))
@@ -2721,7 +2852,7 @@ func (s *Service) EjectISO(
 		diskCount := len(vm.Spec.Disks)
 		device := fmt.Sprintf("sd%c", 'a'+diskCount+cdromIndex)
 		logger.Info("Calculated CD-ROM device name for eject", zap.String("device", device), zap.Int("disk_count", diskCount), zap.Int("cdrom_index", cdromIndex))
-		
+
 		err = client.ChangeMedia(ctx, req.Msg.VmId, device, "") // Empty path = eject
 		if err != nil {
 			logger.Error("Failed to eject ISO on hypervisor", zap.Error(err))

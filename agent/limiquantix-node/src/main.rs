@@ -24,6 +24,7 @@ mod chassis;
 mod cli;
 mod config;
 mod event_store;
+pub mod frr;
 pub mod health_check;
 mod http_server;
 mod iso_manager;

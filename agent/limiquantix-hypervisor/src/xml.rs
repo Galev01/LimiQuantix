@@ -182,7 +182,9 @@ impl<'a> DomainXmlBuilder<'a> {
     }
     
     fn build_cpu_section(&self) -> String {
-        let mode = self.config.cpu.model.as_deref().unwrap_or("host-passthrough");
+        // Default to host-model for cluster compatibility (live migration, memory snapshots)
+        // Users can override to host-passthrough for maximum performance
+        let mode = self.config.cpu.model.as_deref().unwrap_or("host-model");
         
         // For host-passthrough and host-model modes, we pass through the host CPU
         // which provides maximum compatibility with modern Linux distributions

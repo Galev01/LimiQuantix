@@ -61,6 +61,7 @@ type Server struct {
 	securityGroupRepo     *memory.SecurityGroupRepository
 	loadBalancerRepo      *memory.LoadBalancerRepository
 	vpnRepo               *memory.VpnRepository
+	bgpRepo               *memory.BGPRepository
 	registrationTokenRepo *memory.RegistrationTokenRepository
 
 	// Cluster repository (PostgreSQL - required for FK constraint with nodes)
@@ -95,6 +96,7 @@ type Server struct {
 	securityGroupService *networkservice.SecurityGroupService
 	loadBalancerService  *networkservice.LoadBalancerService
 	vpnService           *networkservice.VpnServiceHandler
+	bgpService           *networkservice.BGPServiceHandler
 	imageService         *storageservice.ImageService
 	ovaService           *storageservice.OVAService
 	poolService          *storageservice.PoolService
@@ -241,6 +243,7 @@ func (s *Server) initRepositories() {
 	s.securityGroupRepo = memory.NewSecurityGroupRepository()
 	s.loadBalancerRepo = memory.NewLoadBalancerRepository()
 	s.vpnRepo = memory.NewVpnRepository()
+	s.bgpRepo = memory.NewBGPRepository()
 	s.registrationTokenRepo = memory.NewRegistrationTokenRepository()
 
 	// Cluster repository - requires PostgreSQL for FK constraint with nodes table
@@ -338,6 +341,7 @@ func (s *Server) initServices() {
 	s.securityGroupService = networkservice.NewSecurityGroupService(s.securityGroupRepo, s.logger)
 	s.loadBalancerService = networkservice.NewLoadBalancerService(s.loadBalancerRepo, s.logger)
 	s.vpnService = networkservice.NewVpnServiceHandler(s.vpnRepo, s.logger)
+	s.bgpService = networkservice.NewBGPServiceHandler(s.bgpRepo, s.logger)
 
 	// Storage services
 	s.imageService = storageservice.NewImageService(s.imageRepo, s.logger)
@@ -535,6 +539,11 @@ func (s *Server) registerRoutes() {
 	vpnPath, vpnHandler := networkv1connect.NewVpnServiceManagerHandler(s.vpnService)
 	s.mux.Handle(vpnPath, vpnHandler)
 	s.logger.Info("Registered VPN service", zap.String("path", vpnPath))
+
+	// BGP Service
+	bgpPath, bgpHandler := networkv1connect.NewBGPServiceHandler(s.bgpService)
+	s.mux.Handle(bgpPath, bgpHandler)
+	s.logger.Info("Registered BGP service", zap.String("path", bgpPath))
 
 	// =========================================================================
 	// Connect-RPC Services - Storage

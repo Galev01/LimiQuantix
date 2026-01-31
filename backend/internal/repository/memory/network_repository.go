@@ -361,3 +361,174 @@ func (r *VpnRepository) Delete(ctx context.Context, id string) error {
 	r.store.Delete(id)
 	return nil
 }
+
+// =============================================================================
+// BGP REPOSITORY
+// =============================================================================
+
+// BGPRepository is an in-memory implementation of network.BGPRepository.
+type BGPRepository struct {
+	speakers       sync.Map // map[string]*domain.BGPSpeaker
+	peers          sync.Map // map[string]*domain.BGPPeer
+	advertisements sync.Map // map[string]*domain.BGPAdvertisement
+}
+
+// NewBGPRepository creates a new in-memory BGP repository.
+func NewBGPRepository() *BGPRepository {
+	return &BGPRepository{}
+}
+
+// CreateSpeaker adds a new BGP speaker.
+func (r *BGPRepository) CreateSpeaker(ctx context.Context, speaker *domain.BGPSpeaker) (*domain.BGPSpeaker, error) {
+	if speaker.ID == "" {
+		speaker.ID = uuid.NewString()
+	}
+	now := time.Now()
+	speaker.CreatedAt = now
+	speaker.UpdatedAt = now
+	r.speakers.Store(speaker.ID, speaker)
+	return speaker, nil
+}
+
+// GetSpeaker retrieves a BGP speaker by ID.
+func (r *BGPRepository) GetSpeaker(ctx context.Context, id string) (*domain.BGPSpeaker, error) {
+	if val, ok := r.speakers.Load(id); ok {
+		return val.(*domain.BGPSpeaker), nil
+	}
+	return nil, domain.ErrNotFound
+}
+
+// ListSpeakers retrieves BGP speakers based on filter criteria.
+func (r *BGPRepository) ListSpeakers(ctx context.Context, projectID string, limit int, offset int) ([]*domain.BGPSpeaker, int, error) {
+	var result []*domain.BGPSpeaker
+	var total int
+
+	r.speakers.Range(func(key, value interface{}) bool {
+		speaker := value.(*domain.BGPSpeaker)
+
+		if projectID != "" && speaker.ProjectID != projectID {
+			return true
+		}
+
+		total++
+		result = append(result, speaker)
+		return true
+	})
+
+	// Apply pagination
+	if offset >= len(result) {
+		return []*domain.BGPSpeaker{}, total, nil
+	}
+	end := offset + limit
+	if limit <= 0 {
+		end = len(result)
+	} else if end > len(result) {
+		end = len(result)
+	}
+
+	return result[offset:end], total, nil
+}
+
+// UpdateSpeaker modifies an existing BGP speaker.
+func (r *BGPRepository) UpdateSpeaker(ctx context.Context, speaker *domain.BGPSpeaker) (*domain.BGPSpeaker, error) {
+	if _, ok := r.speakers.Load(speaker.ID); !ok {
+		return nil, domain.ErrNotFound
+	}
+	speaker.UpdatedAt = time.Now()
+	r.speakers.Store(speaker.ID, speaker)
+	return speaker, nil
+}
+
+// DeleteSpeaker removes a BGP speaker by ID.
+func (r *BGPRepository) DeleteSpeaker(ctx context.Context, id string) error {
+	if _, ok := r.speakers.Load(id); !ok {
+		return domain.ErrNotFound
+	}
+	r.speakers.Delete(id)
+	return nil
+}
+
+// CreatePeer adds a new BGP peer.
+func (r *BGPRepository) CreatePeer(ctx context.Context, peer *domain.BGPPeer) (*domain.BGPPeer, error) {
+	if peer.ID == "" {
+		peer.ID = uuid.NewString()
+	}
+	peer.CreatedAt = time.Now()
+	r.peers.Store(peer.ID, peer)
+	return peer, nil
+}
+
+// GetPeer retrieves a BGP peer by ID.
+func (r *BGPRepository) GetPeer(ctx context.Context, id string) (*domain.BGPPeer, error) {
+	if val, ok := r.peers.Load(id); ok {
+		return val.(*domain.BGPPeer), nil
+	}
+	return nil, domain.ErrNotFound
+}
+
+// ListPeers retrieves BGP peers for a speaker.
+func (r *BGPRepository) ListPeers(ctx context.Context, speakerID string) ([]*domain.BGPPeer, error) {
+	var result []*domain.BGPPeer
+
+	r.peers.Range(func(key, value interface{}) bool {
+		peer := value.(*domain.BGPPeer)
+		if peer.SpeakerID == speakerID {
+			result = append(result, peer)
+		}
+		return true
+	})
+
+	return result, nil
+}
+
+// UpdatePeer modifies an existing BGP peer.
+func (r *BGPRepository) UpdatePeer(ctx context.Context, peer *domain.BGPPeer) (*domain.BGPPeer, error) {
+	if _, ok := r.peers.Load(peer.ID); !ok {
+		return nil, domain.ErrNotFound
+	}
+	r.peers.Store(peer.ID, peer)
+	return peer, nil
+}
+
+// DeletePeer removes a BGP peer by ID.
+func (r *BGPRepository) DeletePeer(ctx context.Context, id string) error {
+	if _, ok := r.peers.Load(id); !ok {
+		return domain.ErrNotFound
+	}
+	r.peers.Delete(id)
+	return nil
+}
+
+// CreateAdvertisement adds a new BGP advertisement.
+func (r *BGPRepository) CreateAdvertisement(ctx context.Context, adv *domain.BGPAdvertisement) (*domain.BGPAdvertisement, error) {
+	if adv.ID == "" {
+		adv.ID = uuid.NewString()
+	}
+	adv.CreatedAt = time.Now()
+	r.advertisements.Store(adv.ID, adv)
+	return adv, nil
+}
+
+// ListAdvertisements retrieves BGP advertisements for a speaker.
+func (r *BGPRepository) ListAdvertisements(ctx context.Context, speakerID string) ([]*domain.BGPAdvertisement, error) {
+	var result []*domain.BGPAdvertisement
+
+	r.advertisements.Range(func(key, value interface{}) bool {
+		adv := value.(*domain.BGPAdvertisement)
+		if adv.SpeakerID == speakerID {
+			result = append(result, adv)
+		}
+		return true
+	})
+
+	return result, nil
+}
+
+// DeleteAdvertisement removes a BGP advertisement by ID.
+func (r *BGPRepository) DeleteAdvertisement(ctx context.Context, id string) error {
+	if _, ok := r.advertisements.Load(id); !ok {
+		return domain.ErrNotFound
+	}
+	r.advertisements.Delete(id)
+	return nil
+}

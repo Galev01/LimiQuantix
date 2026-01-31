@@ -281,6 +281,7 @@ export interface ApiVM {
     cpu?: { 
       cores?: number;
       sockets?: number;
+      model?: string;  // CPU mode: 'host-model' (flexible) or 'host-passthrough' (performance)
     };
     memory?: { sizeMib?: number };
     disks?: Array<{ 
@@ -385,17 +386,24 @@ export interface ApiVM {
       cpuUsagePercent?: number;
       memoryPercent?: number;
       memoryUsedMib?: number;
+      memoryUsedBytes?: number;  // Live metrics from node daemon
       memoryBytes?: number;
       diskReadBytesPerSec?: number;
       diskWriteBytesPerSec?: number;
+      diskReadBytes?: number;    // Live metrics from node daemon
+      diskWriteBytes?: number;   // Live metrics from node daemon
       networkRxBytesPerSec?: number;
       networkTxBytesPerSec?: number;
+      networkRxBytes?: number;   // Live metrics from node daemon
+      networkTxBytes?: number;   // Live metrics from node daemon
     };
     guestInfo?: {
       agentVersion?: string;
       hostname?: string;
       osName?: string;
       osVersion?: string;
+      kernelVersion?: string;
+      uptimeSeconds?: number;    // Live metrics from guest agent
     };
   };
   createdAt?: string;
@@ -876,6 +884,30 @@ export interface ApiVirtualNetwork {
   description?: string;
   spec?: {
     type?: string;
+    // IP Configuration (matches proto IpAddressManagement)
+    ipConfig?: {
+      ipv4Subnet?: string;  // CIDR notation, e.g., "10.0.0.0/24"
+      ipv4Gateway?: string;
+      dhcp?: {
+        enabled?: boolean;
+        leaseTimeSec?: number;
+        dnsServers?: string[];
+      };
+      allocationPools?: Array<{ start: string; end: string }>;
+    };
+    // VLAN configuration (for VLAN type)
+    vlan?: {
+      vlanId?: number;
+      physicalNetwork?: string;
+    };
+    // Router configuration
+    router?: {
+      enabled?: boolean;
+      externalGatewayNetworkId?: string;
+      enableSnat?: boolean;
+    };
+    mtu?: number;
+    // Legacy fields (for backwards compatibility in display)
     cidr?: string;
     gateway?: string;
     dhcpEnabled?: boolean;
@@ -1342,6 +1374,197 @@ export const vpnApi = {
       'limiquantix.network.v1.VpnServiceManager',
       'GetVpnStatus',
       { vpnId }
+    );
+  },
+};
+
+// =============================================================================
+// BGP Service API
+// =============================================================================
+
+export interface ApiBGPSpeaker {
+  id: string;
+  name: string;
+  projectId: string;
+  description?: string;
+  labels?: Record<string, string>;
+  spec?: {
+    localAsn?: number;
+    routerId?: string;
+    nodeId?: string;
+    advertiseTenantNetworks?: boolean;
+    advertiseFloatingIps?: boolean;
+  };
+  status?: {
+    phase?: 'UNKNOWN' | 'PENDING' | 'ACTIVE' | 'ERROR';
+    activePeers?: number;
+    advertisedRoutes?: number;
+    errorMessage?: string;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ApiBGPPeer {
+  id: string;
+  speakerId: string;
+  name?: string;
+  peerIp: string;
+  remoteAsn: number;
+  md5Password?: string;
+  holdTime?: number;
+  keepaliveInterval?: number;
+  bfdEnabled?: boolean;
+  status?: {
+    state?: 'UNKNOWN' | 'IDLE' | 'CONNECT' | 'ACTIVE' | 'OPEN_SENT' | 'OPEN_CONFIRM' | 'ESTABLISHED';
+    uptimeSeconds?: number;
+    prefixesReceived?: number;
+    prefixesAdvertised?: number;
+    lastChange?: string;
+    errorMessage?: string;
+  };
+  createdAt?: string;
+}
+
+export interface ApiBGPAdvertisement {
+  id: string;
+  speakerId: string;
+  cidr: string;
+  nextHop?: string;
+  communities?: string[];
+  localPreference?: number;
+  active?: boolean;
+  createdAt?: string;
+}
+
+export interface BGPSpeakerListResponse {
+  speakers: ApiBGPSpeaker[];
+  nextPageToken?: string;
+  totalCount: number;
+}
+
+export interface BGPPeerListResponse {
+  peers: ApiBGPPeer[];
+}
+
+export interface BGPAdvertisementListResponse {
+  advertisements: ApiBGPAdvertisement[];
+}
+
+export interface BGPSpeakerDetailedStatus {
+  speakerId: string;
+  status?: ApiBGPSpeaker['status'];
+  peers?: ApiBGPPeer[];
+  advertisements?: ApiBGPAdvertisement[];
+}
+
+export const bgpApi = {
+  async listSpeakers(params?: { projectId?: string; pageSize?: number }): Promise<BGPSpeakerListResponse> {
+    return apiCall<BGPSpeakerListResponse>(
+      'limiquantix.network.v1.BGPService',
+      'ListSpeakers',
+      params || {}
+    );
+  },
+
+  async getSpeaker(id: string): Promise<ApiBGPSpeaker> {
+    return apiCall<ApiBGPSpeaker>(
+      'limiquantix.network.v1.BGPService',
+      'GetSpeaker',
+      { id }
+    );
+  },
+
+  async createSpeaker(data: {
+    name: string;
+    projectId: string;
+    description?: string;
+    spec?: {
+      localAsn: number;
+      routerId: string;
+      nodeId?: string;
+    };
+  }): Promise<ApiBGPSpeaker> {
+    return apiCall<ApiBGPSpeaker>(
+      'limiquantix.network.v1.BGPService',
+      'CreateSpeaker',
+      data
+    );
+  },
+
+  async deleteSpeaker(id: string): Promise<void> {
+    await apiCall<void>(
+      'limiquantix.network.v1.BGPService',
+      'DeleteSpeaker',
+      { id }
+    );
+  },
+
+  async addPeer(speakerId: string, peer: {
+    name?: string;
+    peerIp: string;
+    remoteAsn: number;
+    md5Password?: string;
+    holdTime?: number;
+    keepaliveInterval?: number;
+    bfdEnabled?: boolean;
+  }): Promise<ApiBGPPeer> {
+    return apiCall<ApiBGPPeer>(
+      'limiquantix.network.v1.BGPService',
+      'AddPeer',
+      { speakerId, ...peer }
+    );
+  },
+
+  async removePeer(speakerId: string, peerId: string): Promise<void> {
+    await apiCall<void>(
+      'limiquantix.network.v1.BGPService',
+      'RemovePeer',
+      { speakerId, peerId }
+    );
+  },
+
+  async listPeers(speakerId: string): Promise<BGPPeerListResponse> {
+    return apiCall<BGPPeerListResponse>(
+      'limiquantix.network.v1.BGPService',
+      'ListPeers',
+      { speakerId }
+    );
+  },
+
+  async advertiseNetwork(speakerId: string, cidr: string, options?: {
+    nextHop?: string;
+    communities?: string[];
+    localPreference?: number;
+  }): Promise<ApiBGPAdvertisement> {
+    return apiCall<ApiBGPAdvertisement>(
+      'limiquantix.network.v1.BGPService',
+      'AdvertiseNetwork',
+      { speakerId, cidr, ...options }
+    );
+  },
+
+  async withdrawNetwork(speakerId: string, advertisementId: string): Promise<void> {
+    await apiCall<void>(
+      'limiquantix.network.v1.BGPService',
+      'WithdrawNetwork',
+      { speakerId, advertisementId }
+    );
+  },
+
+  async listAdvertisements(speakerId: string): Promise<BGPAdvertisementListResponse> {
+    return apiCall<BGPAdvertisementListResponse>(
+      'limiquantix.network.v1.BGPService',
+      'ListAdvertisements',
+      { speakerId }
+    );
+  },
+
+  async getSpeakerStatus(id: string): Promise<BGPSpeakerDetailedStatus> {
+    return apiCall<BGPSpeakerDetailedStatus>(
+      'limiquantix.network.v1.BGPService',
+      'GetSpeakerStatus',
+      { id }
     );
   },
 };

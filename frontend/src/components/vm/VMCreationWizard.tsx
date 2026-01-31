@@ -135,6 +135,9 @@ function detectGuestOS(imageName: string, imagePath?: string): GuestOSFamily {
   return 'generic_linux';
 }
 
+// CPU Mode type - determines cluster compatibility and performance trade-offs
+type CpuMode = 'host-model' | 'host-passthrough';
+
 interface VMCreationData {
   // Step 1: Basic Info
   name: string;
@@ -161,6 +164,7 @@ interface VMCreationData {
   // Step 5: Hardware
   cpuCores: number;
   cpuSockets: number;
+  cpuMode: CpuMode;  // CPU emulation mode
   memoryMib: number;
   nics: NetworkInterface[];
 
@@ -277,6 +281,7 @@ const initialFormData: VMCreationData = {
   hostname: '',
   cpuCores: 2,
   cpuSockets: 1,
+  cpuMode: 'host-model',  // Default to Quantix Flexible for cluster compatibility
   memoryMib: 4096,
   nics: [{ id: 'nic-1', networkId: 'net-prod', networkName: 'Production VLAN 100', connected: true }],
   bootMediaType: 'cloud-image',  // Default to cloud image for quick provisioning
@@ -611,6 +616,7 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
           cpu: {
             cores: formData.cpuCores * formData.cpuSockets,
             sockets: formData.cpuSockets,
+            model: formData.cpuMode,  // CPU mode: host-model (flexible) or host-passthrough (performance)
           },
           memory: { sizeMib: formData.memoryMib },
           disks: formData.disks.map((d, index) => ({
@@ -1879,6 +1885,109 @@ function StepHardware({
               )}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* CPU Mode Selection */}
+      <div className="p-5 rounded-xl bg-bg-base border border-border">
+        <div className="flex items-center gap-2 mb-4">
+          <Cpu className="w-5 h-5 text-accent" />
+          <h4 className="font-medium text-text-primary">CPU Configuration</h4>
+          <Badge variant="info" size="sm">Cluster Mode</Badge>
+        </div>
+        <p className="text-xs text-text-muted mb-4">
+          Choose between cluster compatibility and maximum performance. This affects live migration and snapshot capabilities.
+        </p>
+        
+        <div className="grid grid-cols-2 gap-4">
+          {/* Quantix Flexible (host-model) */}
+          <button
+            type="button"
+            onClick={() => updateFormData({ cpuMode: 'host-model' })}
+            className={cn(
+              "p-4 rounded-xl text-left transition-all border-2",
+              formData.cpuMode === 'host-model'
+                ? "bg-accent/10 border-accent"
+                : "bg-bg-surface border-border hover:border-text-muted"
+            )}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <div className={cn(
+                "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                formData.cpuMode === 'host-model' ? "border-accent" : "border-text-muted"
+              )}>
+                {formData.cpuMode === 'host-model' && (
+                  <div className="w-2 h-2 rounded-full bg-accent" />
+                )}
+              </div>
+              <span className="font-semibold text-text-primary">Quantix Flexible</span>
+              <Badge variant="success" size="sm">Recommended</Badge>
+            </div>
+            <div className="ml-6 space-y-1 text-xs">
+              <p className="text-success flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" /> Live migration
+              </p>
+              <p className="text-success flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" /> Memory snapshots
+              </p>
+              <p className="text-success flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" /> HA failover
+              </p>
+              <p className="text-success flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" /> Cluster-ready
+              </p>
+            </div>
+            <p className="ml-6 mt-2 text-xs text-text-muted">
+              Best for: Production clusters, general use
+            </p>
+          </button>
+
+          {/* Quantix Performance (host-passthrough) */}
+          <button
+            type="button"
+            onClick={() => updateFormData({ cpuMode: 'host-passthrough' })}
+            className={cn(
+              "p-4 rounded-xl text-left transition-all border-2",
+              formData.cpuMode === 'host-passthrough'
+                ? "bg-warning/10 border-warning"
+                : "bg-bg-surface border-border hover:border-text-muted"
+            )}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <div className={cn(
+                "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                formData.cpuMode === 'host-passthrough' ? "border-warning" : "border-text-muted"
+              )}>
+                {formData.cpuMode === 'host-passthrough' && (
+                  <div className="w-2 h-2 rounded-full bg-warning" />
+                )}
+              </div>
+              <span className="font-semibold text-text-primary">Quantix Performance</span>
+            </div>
+            <div className="ml-6 space-y-1 text-xs">
+              <p className="text-success flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" /> Maximum CPU performance
+              </p>
+              <p className="text-success flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" /> All CPU features exposed
+              </p>
+              <p className="text-success flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" /> Nested virtualization
+              </p>
+              <p className="text-error flex items-center gap-1">
+                <X className="w-3 h-3" /> No live migration
+              </p>
+              <p className="text-error flex items-center gap-1">
+                <X className="w-3 h-3" /> No memory snapshots
+              </p>
+              <p className="text-error flex items-center gap-1">
+                <X className="w-3 h-3" /> Single-host only
+              </p>
+            </div>
+            <p className="ml-6 mt-2 text-xs text-text-muted">
+              Best for: HPC, AI/ML, nested virtualization
+            </p>
+          </button>
         </div>
       </div>
 
@@ -3435,6 +3544,10 @@ function StepReview({
           <ReviewRow
             label="CPU"
             value={`${formData.cpuCores * formData.cpuSockets} vCPUs (${formData.cpuCores} cores × ${formData.cpuSockets} socket${formData.cpuSockets > 1 ? 's' : ''})`}
+          />
+          <ReviewRow
+            label="CPU Mode"
+            value={formData.cpuMode === 'host-model' ? 'Quantix Flexible (cluster-ready)' : 'Quantix Performance (single-host)'}
           />
           <ReviewRow label="Memory" value={`${formData.memoryMib / 1024} GB`} />
           <ReviewRow

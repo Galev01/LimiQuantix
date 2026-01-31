@@ -1,140 +1,109 @@
-# QuantumNet Advanced Networking Implementation
+# CPU Mode User Selection Implementation
 
-## Status: IN PROGRESS
+## Status: COMPLETED ✓
 
-## Completed Phases
+## Summary
 
-### Phase 2: Native L4 Load Balancing ✓
+Added CPU configuration selector to the VM creation wizard that lets users choose between performance-optimized and flexibility-optimized CPU modes, using user-friendly names.
 
-**Phase 2.1-2.2: LoadBalancer Backend (COMPLETED)**
-- Created `backend/internal/services/network/loadbalancer_service.go`
-  - Connect-RPC `LoadBalancerServiceHandler` implementation
-  - Full CRUD: Create, Get, List, Update, Delete
-  - Listener management: AddListener, RemoveListener
-  - Pool member management: AddPoolMember, RemovePoolMember
-  - Statistics: GetLoadBalancerStats
-  - OVN integration (simulated): lb-add, lb-del, VIP management
-- Added `LoadBalancerRepository` in-memory implementation
-- Wired LoadBalancerService in `backend/internal/server/server.go`
+## User-Facing Names
 
-**Phase 2.3: Health Check Module (COMPLETED)**
-- Created `agent/limiquantix-node/src/health_check.rs`
-  - TCP connect health checks
-  - HTTP GET health checks with status code validation
-  - Configurable thresholds (unhealthy/healthy)
-  - Health status reporting channel
-  - Background check loop with configurable interval
+| Internal Name        | User-Friendly Name       | Description                                      |
+| -------------------- | ------------------------ | ------------------------------------------------ |
+| `host-passthrough`   | **Quantix Performance**  | Maximum performance, single-host workloads       |
+| `host-model`         | **Quantix Flexible**     | Cluster-ready, supports migration and snapshots  |
 
-**Phase 2.4: Load Balancer Frontend (COMPLETED)**
-- Created `frontend/src/hooks/useLoadBalancers.ts`
-  - useLoadBalancers, useLoadBalancer, useLoadBalancerStats
-  - useCreateLoadBalancer, useUpdateLoadBalancer, useDeleteLoadBalancer
-  - useAddListener, useRemoveListener
-  - useAddPoolMember, useRemovePoolMember
-- Added `loadBalancerApi` to `frontend/src/lib/api-client.ts`
-- Updated `frontend/src/pages/LoadBalancers.tsx`
-  - Connected to real API via hooks
-  - Loading, error, empty states
-  - Create, delete mutations
+## Changes Made
 
-### Phase 3: WireGuard Bastion VPN (Partial)
+### 1. Proto (Node Daemon)
+- `proto/limiquantix/node/v1/node_daemon.proto`:
+  - Added `cpu_mode` field (field 14) to `VMSpec` message
+  - Supports "host-model" (default) and "host-passthrough"
 
-**Phase 3.1-3.2: VPN Backend (COMPLETED)**
-- Created `backend/internal/services/network/vpn_handler.go`
-  - Connect-RPC `VpnServiceManagerHandler` implementation
-  - CRUD: CreateVpn, GetVpn, ListVpns, DeleteVpn
-  - Connection management: AddConnection, RemoveConnection
-  - Status: GetVpnStatus
-  - QR code generation: GetClientConfigQR (custom method)
-- Added `VpnRepository` in-memory implementation
-- Wired VpnServiceHandler in `backend/internal/server/server.go`
+### 2. QvDC Backend (Go)
+- `backend/internal/services/vm/service.go`:
+  - Updated `convertToNodeDaemonCreateRequest()` to pass CPU mode from spec
 
-**Phase 3.3: WireGuard Agent Module (COMPLETED)**
-- Created `agent/limiquantix-node/src/wireguard.rs`
-  - WireGuardManager: apply_config, remove_config
-  - Peer management: add_peer, remove_peer
-  - Status: get_status, get_peer_status
-  - Config file generation for wg-quick
-  - Interface up/down via wg-quick commands
+### 3. qx-node (Rust)
+- `agent/limiquantix-node/src/service.rs`:
+  - Added CPU mode handling in `create_vm()`
+  - Defaults to "host-model" for cluster compatibility
 
-## In Progress
+### 4. Hypervisor (Rust)
+- `agent/limiquantix-hypervisor/src/xml.rs`:
+  - Changed default CPU mode from "host-passthrough" to "host-model"
 
-### Phase 3.4: VPN High Availability
-- Floating IP for bastion endpoint
-- Health monitoring and automatic failover
-- Bastion respawn on node failure
+- `agent/limiquantix-hypervisor/src/libvirt/backend.rs`:
+  - Added `parse_cpu_mode_from_xml()` function to detect VM's CPU mode
+  - Updated snapshot logic to allow memory snapshots for "host-model"
+  - Memory snapshots still blocked for "host-passthrough" (limitation)
 
-## Pending Phases
+- `agent/limiquantix-hypervisor/src/guest_os.rs`:
+  - Changed all Guest OS profile defaults to "host-model"
+  - Updated tests to expect "host-model"
 
-### Phase 3.5: VPN Frontend
-- Connect VPNServices page to real API
-- QR code display using qrcode.react
-- Client config download
+### 5. Frontend (React/TypeScript)
+- `frontend/src/components/vm/VMCreationWizard.tsx`:
+  - Added `CpuMode` type
+  - Added `cpuMode` to `VMCreationData` interface
+  - Set default to 'host-model' (Quantix Flexible)
+  - Added CPU mode selector UI with two cards in Hardware step
+  - Updated API submission to include `model` in cpu spec
+  - Added CPU mode to Review section
 
-### Phase 4: BGP ToR Integration
-- BGPService backend registration
-- FRRouting agent module
-- BGPSpeakers frontend page
+## UI Design
 
-### Phase 5: Bear Trap Mitigations
-- Packet trace (ovn-trace wrapper)
-- Live migration port binding
-- OVN DNS responder
-- QHCI network features
-
-## Architecture Summary
+The selector appears in the Hardware step with two selectable cards:
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│                       QvDC Dashboard                            │
-│  LoadBalancers.tsx  VPNServices.tsx  NetworkTopology.tsx       │
-└───────────────────────────┬────────────────────────────────────┘
-                            │ Connect-RPC
-┌───────────────────────────▼────────────────────────────────────┐
-│                      Go Control Plane                           │
-│  LoadBalancerService  VpnServiceHandler  NetworkService        │
-│  SecurityGroupService BGPService (pending)                      │
-└───────────────────────────┬────────────────────────────────────┘
-                            │ gRPC
-┌───────────────────────────▼────────────────────────────────────┐
-│                    Rust Node Daemon                             │
-│  health_check.rs  wireguard.rs  frr.rs (pending)               │
-│  service.rs (OVS/OVN)                                          │
-└───────────────────────────┬────────────────────────────────────┘
-                            │
-┌───────────────────────────▼────────────────────────────────────┐
-│                     Infrastructure                              │
-│  OVN NB/SB  WireGuard wg0  FRRouting  Open vSwitch             │
-└────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│ CPU Configuration                                                        │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌──────────────────────────────┐  ┌──────────────────────────────┐    │
+│  │ ○ Quantix Flexible          │  │ ○ Quantix Performance        │    │
+│  │   (Recommended)             │  │                              │    │
+│  │                             │  │                              │    │
+│  │   ✓ Live migration          │  │   ✓ Maximum CPU performance  │    │
+│  │   ✓ Memory snapshots        │  │   ✓ All CPU features exposed │    │
+│  │   ✓ HA failover             │  │   ✓ Nested virtualization    │    │
+│  │   ✓ Cluster-ready           │  │                              │    │
+│  │                             │  │   ✗ No live migration        │    │
+│  │   Best for: Production      │  │   ✗ No memory snapshots      │    │
+│  │   clusters, general use     │  │   ✗ Single-host only         │    │
+│  │                             │  │                              │    │
+│  │                             │  │   Best for: HPC, AI/ML,      │    │
+│  │                             │  │   nested virtualization      │    │
+│  └──────────────────────────────┘  └──────────────────────────────┘    │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Files Modified/Created
+## Files Modified
 
-### Backend (Go)
-- `backend/internal/services/network/loadbalancer_service.go` (NEW)
-- `backend/internal/services/network/vpn_handler.go` (NEW)
-- `backend/internal/repository/memory/network_repository.go` (MODIFIED)
-- `backend/internal/server/server.go` (MODIFIED)
+| File                                                   | Change                                 |
+| ------------------------------------------------------ | -------------------------------------- |
+| `proto/limiquantix/node/v1/node_daemon.proto`          | Add `cpu_mode` field                   |
+| `backend/internal/services/vm/service.go`              | Pass `cpu_mode` to node                |
+| `agent/limiquantix-node/src/service.rs`                | Apply `cpu_mode` from spec             |
+| `agent/limiquantix-hypervisor/src/xml.rs`              | Change default to `host-model`         |
+| `agent/limiquantix-hypervisor/src/libvirt/backend.rs`  | Allow memory snapshots for host-model  |
+| `agent/limiquantix-hypervisor/src/guest_os.rs`         | Update profile defaults                |
+| `frontend/src/components/vm/VMCreationWizard.tsx`      | Add CPU mode selector UI               |
 
-### Agent (Rust)
-- `agent/limiquantix-node/src/health_check.rs` (NEW)
-- `agent/limiquantix-node/src/wireguard.rs` (NEW)
-- `agent/limiquantix-node/src/main.rs` (MODIFIED)
+## Deployment
 
-### Frontend (React)
-- `frontend/src/hooks/useLoadBalancers.ts` (NEW)
-- `frontend/src/lib/api-client.ts` (MODIFIED)
-- `frontend/src/pages/LoadBalancers.tsx` (MODIFIED)
-- `frontend/src/components/UpdateInProgressModal.tsx` (MODIFIED - fixed types)
+After changes:
+
+1. Run `make proto` to regenerate proto code
+2. Rebuild and deploy QvDC backend
+3. Rebuild and deploy qx-node (via `./scripts/publish-update.sh`)
+4. Rebuild frontend
+
+Existing VMs are unaffected - they keep their current CPU mode.
 
 ## Build Status
-- Go Backend: ✓ Compiles successfully
-- Frontend: ✓ Builds successfully
-- Rust Agent: Requires Linux (libvirt dependency)
-
-## Log
-- **2026-01-31**: Created LoadBalancerService with Connect-RPC handlers
-- **2026-01-31**: Added health_check.rs module (TCP/HTTP probes)
-- **2026-01-31**: Connected LoadBalancers page to real API
-- **2026-01-31**: Created VpnServiceHandler with QR code generation
-- **2026-01-31**: Added wireguard.rs module for wg0 management
+- [ ] Proto regeneration pending
+- [ ] Go Backend: Needs rebuild
+- [ ] Rust Agent: Needs rebuild  
+- [ ] Frontend: Needs rebuild

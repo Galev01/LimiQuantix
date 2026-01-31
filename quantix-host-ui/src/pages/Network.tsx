@@ -5,11 +5,13 @@
 import { useState } from 'react';
 import { Card } from '@/components/ui';
 import { useNetworkInterfaces, useDnsConfig, useHostname } from '@/hooks/useNetwork';
-import { Network as NetworkIcon, Wifi, Globe, Server, Plus, Settings } from 'lucide-react';
+import { Network as NetworkIcon, Wifi, Globe, Server, Plus, Settings, Search } from 'lucide-react';
 import { InterfaceCard } from '@/components/network/InterfaceCard';
 import { DnsConfigModal } from '@/components/network/DnsConfigModal';
 import { HostnameModal } from '@/components/network/HostnameModal';
 import { CreateBridgeModal } from '@/components/network/CreateBridgeModal';
+import { OVSStatusCard } from '@/components/network/OVSStatusCard';
+import { PacketTraceModal } from '@/components/network/PacketTraceModal';
 
 export function Network() {
   const { data: interfaces, isLoading: interfacesLoading } = useNetworkInterfaces();
@@ -19,6 +21,7 @@ export function Network() {
   const [showDnsModal, setShowDnsModal] = useState(false);
   const [showHostnameModal, setShowHostnameModal] = useState(false);
   const [showBridgeModal, setShowBridgeModal] = useState(false);
+  const [showPacketTraceModal, setShowPacketTraceModal] = useState(false);
 
   if (interfacesLoading) {
     return (
@@ -45,13 +48,22 @@ export function Network() {
           </p>
         </div>
         
-        <button
-          onClick={() => setShowBridgeModal(true)}
-          className="px-4 py-2 bg-neonBlue text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Create Bridge
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowPacketTraceModal(true)}
+            className="px-4 py-2 bg-bg-surface border border-border-default text-text-primary rounded-lg hover:bg-bg-elevated transition-colors flex items-center gap-2"
+          >
+            <Search className="w-4 h-4" />
+            Packet Trace
+          </button>
+          <button
+            onClick={() => setShowBridgeModal(true)}
+            className="px-4 py-2 bg-neonBlue text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Create Bridge
+          </button>
+        </div>
       </div>
 
       {/* Quick Info Cards */}
@@ -101,13 +113,22 @@ export function Network() {
         </Card>
       </div>
 
-      {/* Network Interfaces */}
-      <div>
-        <h2 className="text-lg font-semibold text-text-primary mb-4">Network Interfaces</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {interfaces?.interfaces.map((iface) => (
-            <InterfaceCard key={iface.name} interface={iface} />
-          ))}
+      {/* OVS Status & Interfaces Grid */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* OVS Status */}
+        <div>
+          <h2 className="text-lg font-semibold text-text-primary mb-4">Virtual Switch (OVS)</h2>
+          <OVSStatusCard />
+        </div>
+
+        {/* Network Interfaces */}
+        <div>
+          <h2 className="text-lg font-semibold text-text-primary mb-4">Network Interfaces</h2>
+          <div className="space-y-4">
+            {interfaces?.interfaces.map((iface) => (
+              <InterfaceCard key={iface.name} interface={iface} />
+            ))}
+          </div>
         </div>
       </div>
 
@@ -132,6 +153,11 @@ export function Network() {
           onClose={() => setShowBridgeModal(false)}
         />
       )}
+      
+      <PacketTraceModal
+        isOpen={showPacketTraceModal}
+        onClose={() => setShowPacketTraceModal(false)}
+      />
     </div>
   );
 }

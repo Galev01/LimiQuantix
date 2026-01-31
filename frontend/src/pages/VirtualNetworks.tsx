@@ -41,20 +41,28 @@ const typeConfig = {
 
 // Convert API network to display format
 function apiToDisplayNetwork(net: ApiVirtualNetwork): VirtualNetwork {
+  // Handle both new ipConfig structure and legacy flat structure
+  const ipConfig = net.spec?.ipConfig;
+  const vlanConfig = net.spec?.vlan;
+  
   return {
     id: net.id,
     name: net.name,
     description: net.description || '',
-    type: (net.spec?.type as 'OVERLAY' | 'VLAN' | 'EXTERNAL') || 'VLAN',
+    type: (net.spec?.type as 'OVERLAY' | 'VLAN' | 'EXTERNAL') || 'OVERLAY',
     status: (net.status?.phase as 'ACTIVE' | 'PENDING' | 'ERROR') || 'ACTIVE',
-    vlanId: net.spec?.vlanId,
-    cidr: net.spec?.cidr || '',
-    gateway: net.spec?.gateway || '',
-    dhcpEnabled: net.spec?.dhcpEnabled || false,
+    // VLAN ID from new structure or legacy
+    vlanId: vlanConfig?.vlanId ?? net.spec?.vlanId,
+    // CIDR from new ipConfig or legacy flat structure
+    cidr: ipConfig?.ipv4Subnet || net.spec?.cidr || '',
+    // Gateway from new ipConfig or legacy flat structure
+    gateway: ipConfig?.ipv4Gateway || net.spec?.gateway || '',
+    // DHCP from new structure or legacy
+    dhcpEnabled: ipConfig?.dhcp?.enabled ?? net.spec?.dhcpEnabled ?? false,
     connectedVMs: net.status?.usedIps || 0,
     connectedPorts: net.status?.portCount || 0,
     quantrixSwitch: 'qs-auto',
-    mtu: 1500,
+    mtu: net.spec?.mtu || 1500,
     createdAt: net.createdAt || new Date().toISOString(),
   };
 }
@@ -115,11 +123,23 @@ export function VirtualNetworks() {
         projectId: 'default',
         description: data.description,
         spec: {
-          type: data.type || 'VLAN',
-          cidr: data.cidr || '',
-          gateway: data.gateway,
-          vlanId: data.vlanId,
-          dhcpEnabled: data.dhcpEnabled,
+          type: data.type || 'OVERLAY',
+          // IP Configuration - matches proto IpAddressManagement
+          ipConfig: {
+            ipv4Subnet: data.cidr || '',
+            ipv4Gateway: data.gateway || '',
+            dhcp: {
+              enabled: data.dhcpEnabled ?? true,
+            },
+          },
+          // VLAN configuration (only for VLAN type)
+          ...(data.type === 'VLAN' && data.vlanId ? {
+            vlan: {
+              vlanId: data.vlanId,
+              physicalNetwork: 'provider', // Default physical network
+            },
+          } : {}),
+          mtu: data.mtu || 1500,
         },
       });
       toast.success(`Network "${data.name}" created successfully`);

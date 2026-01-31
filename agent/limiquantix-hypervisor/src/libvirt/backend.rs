@@ -96,6 +96,39 @@ impl LibvirtBackend {
         port_value.parse::<u16>().ok()
     }
     
+    /// Parse CPU mode from libvirt domain XML.
+    /// Looks for: <cpu mode='host-passthrough'> or <cpu mode='host-model'>
+    /// Returns "host-model" as default if not found.
+    fn parse_cpu_mode_from_xml(&self, xml: &str) -> String {
+        // Find the cpu element with mode attribute
+        // Format: <cpu mode='host-passthrough' check='none' migratable='off'>
+        // Or: <cpu mode='host-model' check='partial'>
+        
+        // First, find "<cpu "
+        if let Some(cpu_start) = xml.find("<cpu ") {
+            let cpu_section = &xml[cpu_start..];
+            
+            // Find the end of this element (either /> or >)
+            if let Some(cpu_end) = cpu_section.find('>') {
+                let cpu_tag = &cpu_section[..cpu_end];
+                
+                // Now find mode=' within this cpu tag
+                if let Some(mode_start) = cpu_tag.find("mode='") {
+                    let mode_value_start = mode_start + 6; // Skip "mode='"
+                    let mode_str = &cpu_tag[mode_value_start..];
+                    
+                    // Find the closing quote
+                    if let Some(mode_end) = mode_str.find('\'') {
+                        return mode_str[..mode_end].to_string();
+                    }
+                }
+            }
+        }
+        
+        // Default to host-model if not found (for cluster compatibility)
+        "host-model".to_string()
+    }
+    
     /// Get list of disk device names for a VM (e.g., ["vda", "vdb"])
     fn get_vm_disk_devices(&self, vm_id: &str) -> Result<Vec<String>> {
         // Use virsh domblklist to get disk devices
@@ -548,20 +581,37 @@ impl Hypervisor for LibvirtBackend {
         
         let is_running = matches!(state, sys::VIR_DOMAIN_RUNNING);
         
-        // Determine snapshot strategy:
-        // - If include_memory=true and VM is running, use external snapshot with --live
-        // - If include_memory=true but VM is NOT running, we can't capture memory - use disk-only
-        // - If include_memory=false, use disk-only snapshot (internal)
-        let use_external = options.include_memory && is_running;
+        // Detect CPU mode from VM XML to determine snapshot capabilities
+        let xml = domain.get_xml_desc(0)
+            .map_err(|e| HypervisorError::Internal(e.to_string()))?;
+        let cpu_mode = self.parse_cpu_mode_from_xml(&xml);
         
-        // Warn if user requested memory but VM is not running
-        if options.include_memory && !is_running {
-            warn!(
-                "Memory snapshot requested but VM is not running. \
-                Cannot capture memory state of a stopped VM. \
-                Creating disk-only snapshot instead."
-            );
+        info!(
+            cpu_mode = %cpu_mode,
+            include_memory = %options.include_memory,
+            is_running = %is_running,
+            "Evaluating snapshot capability based on CPU mode"
+        );
+        
+        // Memory snapshots are supported ONLY with host-model or other migratable CPU modes
+        // host-passthrough uses invtsc which disables migration/memory snapshots
+        let is_host_passthrough = cpu_mode == "host-passthrough";
+        
+        // If user requested memory snapshot with host-passthrough, return an error
+        if options.include_memory && is_running && is_host_passthrough {
+            return Err(HypervisorError::SnapshotFailed(
+                "Memory snapshots are not supported with 'Quantix Performance' (host-passthrough) CPU mode. \
+                This VM uses CPU features that prevent memory state capture. \
+                \n\nOptions:\n\
+                1. Create a disk-only snapshot (uncheck 'Include memory state')\n\
+                2. Stop the VM first, then take a snapshot\n\
+                3. Recreate the VM with 'Quantix Flexible' (host-model) CPU mode to enable memory snapshots".to_string()
+            ));
         }
+        
+        // Use external snapshots with memory for host-model (supports migration)
+        // Use disk-only for host-passthrough (doesn't support migration)
+        let use_external = options.include_memory && is_running && !is_host_passthrough;
         
         // Create snapshot directory for external snapshots
         let snapshot_dir = format!("/var/lib/libvirt/snapshots/{}", vm_id);
@@ -627,7 +677,12 @@ impl Hypervisor for LibvirtBackend {
             // This is REQUIRED for VMs with host-passthrough CPU (invtsc flag)
             // because internal snapshots with memory state require migration capability
             args.push("--disk-only".to_string());
-            info!("Using disk-only snapshot mode (internal)");
+            info!(
+                include_memory = %options.include_memory,
+                is_running = %is_running,
+                use_external = %use_external,
+                "Using disk-only snapshot mode (internal) - disk_only flag added"
+            );
         }
         
         // Add quiesce flag if requested (requires guest agent)
@@ -636,6 +691,11 @@ impl Hypervisor for LibvirtBackend {
             info!("Filesystem quiesce requested");
         }
         
+        // Log the full command for debugging
+        info!(
+            command = %format!("virsh {}", args.join(" ")),
+            "Executing snapshot command"
+        );
         debug!(args = ?args, "Running virsh snapshot-create-as");
         
         let output = std::process::Command::new("virsh")

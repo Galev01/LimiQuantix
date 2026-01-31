@@ -222,8 +222,8 @@ impl Default for VideoConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CpuProfile {
     /// CPU mode for libvirt.
-    /// - "host-passthrough": Best performance, all host features
-    /// - "host-model": Good compatibility, allows migration
+    /// - "host-model": Good compatibility, allows migration and memory snapshots (default)
+    /// - "host-passthrough": Best performance, all host features, but no migration
     /// - "custom": Specific CPU model (e.g., "Skylake-Server")
     pub mode: String,
     
@@ -237,7 +237,9 @@ pub struct CpuProfile {
 impl Default for CpuProfile {
     fn default() -> Self {
         Self {
-            mode: "host-passthrough".to_string(),
+            // Default to host-model for cluster compatibility (live migration, memory snapshots)
+            // Users can override to host-passthrough via UI for maximum performance
+            mode: "host-model".to_string(),
             nested_virt: false,
             hyperv_features: HypervFeatures::default(),
         }
@@ -430,7 +432,7 @@ impl GuestOSProfile {
                 accel_3d: false,
             },
             cpu: CpuProfile {
-                mode: "host-passthrough".to_string(),  // RHEL needs real CPU features
+                mode: "host-model".to_string(),  // Default to host-model for cluster compatibility
                 nested_virt: false,
                 hyperv_features: HypervFeatures::default(),
             },
@@ -473,7 +475,7 @@ impl GuestOSProfile {
                 accel_3d: false,
             },
             cpu: CpuProfile {
-                mode: "host-passthrough".to_string(),
+                mode: "host-model".to_string(),  // Default to host-model for cluster compatibility
                 nested_virt: false,
                 hyperv_features: HypervFeatures::default(),
             },
@@ -526,7 +528,7 @@ impl GuestOSProfile {
                 accel_3d: false,
             },
             cpu: CpuProfile {
-                mode: "host-passthrough".to_string(),
+                mode: "host-model".to_string(),  // Default to host-model for cluster compatibility
                 nested_virt: false,
                 hyperv_features: HypervFeatures {
                     enabled: true,
@@ -599,7 +601,7 @@ impl GuestOSProfile {
                 accel_3d: false,
             },
             cpu: CpuProfile {
-                mode: "host-passthrough".to_string(),
+                mode: "host-model".to_string(),  // Default to host-model for cluster compatibility
                 nested_virt: false,
                 hyperv_features: HypervFeatures::default(),
             },
@@ -636,7 +638,7 @@ impl GuestOSProfile {
                 accel_3d: false,
             },
             cpu: CpuProfile {
-                mode: "host-passthrough".to_string(),
+                mode: "host-model".to_string(),  // Default to host-model for cluster compatibility
                 nested_virt: false,
                 hyperv_features: HypervFeatures::default(),
             },
@@ -682,7 +684,7 @@ impl GuestOSProfile {
                 accel_3d: false,
             },
             cpu: CpuProfile {
-                mode: "host-passthrough".to_string(),
+                mode: "host-model".to_string(),  // Default to host-model for cluster compatibility
                 nested_virt: false,
                 hyperv_features: HypervFeatures::default(),
             },
@@ -709,7 +711,7 @@ mod tests {
     fn test_rhel_hpet_disabled() {
         let profile = GuestOSProfile::for_family(GuestOSFamily::Rhel);
         assert!(!profile.timers.hpet_enabled, "RHEL should have HPET disabled");
-        assert_eq!(profile.cpu.mode, "host-passthrough");
+        assert_eq!(profile.cpu.mode, "host-model");  // Default to host-model for cluster compatibility
     }
     
     #[test]

@@ -283,11 +283,14 @@ func (c *DaemonClient) GetConsole(ctx context.Context, vmID string) (*nodev1.Con
 }
 
 // CreateSnapshot creates a snapshot of a VM.
-func (c *DaemonClient) CreateSnapshot(ctx context.Context, vmID, name, description string, quiesce bool) (*nodev1.SnapshotResponse, error) {
+// diskOnly: if true, only snapshot disks (no memory state) - required for VMs with host-passthrough CPU
+func (c *DaemonClient) CreateSnapshot(ctx context.Context, vmID, name, description string, quiesce, diskOnly bool) (*nodev1.SnapshotResponse, error) {
 	c.logger.Info("Creating snapshot on node",
 		zap.String("addr", c.addr),
 		zap.String("vm_id", vmID),
 		zap.String("name", name),
+		zap.Bool("disk_only", diskOnly),
+		zap.Bool("quiesce", quiesce),
 	)
 
 	resp, err := c.client.CreateSnapshot(ctx, &nodev1.CreateSnapshotRequest{
@@ -295,6 +298,7 @@ func (c *DaemonClient) CreateSnapshot(ctx context.Context, vmID, name, descripti
 		Name:        name,
 		Description: description,
 		Quiesce:     quiesce,
+		DiskOnly:    diskOnly,
 	})
 	if err != nil {
 		c.logger.Error("Create snapshot failed",

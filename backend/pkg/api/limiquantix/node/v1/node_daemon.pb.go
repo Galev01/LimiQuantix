@@ -1536,7 +1536,13 @@ type VMSpec struct {
 	// Guest OS family - determines hardware configuration (timers, video, CPU mode).
 	// This is similar to VMware's Guest OS selection - affects virtual hardware behavior.
 	// Values: "rhel", "debian", "fedora", "windows_server", "windows_desktop", "generic_linux", etc.
-	GuestOs       string `protobuf:"bytes,13,opt,name=guest_os,json=guestOs,proto3" json:"guest_os,omitempty"`
+	GuestOs string `protobuf:"bytes,13,opt,name=guest_os,json=guestOs,proto3" json:"guest_os,omitempty"`
+	// CPU mode - determines CPU emulation mode for the VM.
+	// - "host-model": Cluster-ready, supports live migration and memory snapshots (default)
+	// - "host-passthrough": Maximum performance, but no migration/memory snapshots
+	// - "max": Maximum features exposed, migratable
+	// If empty, defaults to "host-model" for cluster compatibility.
+	CpuMode       string `protobuf:"bytes,14,opt,name=cpu_mode,json=cpuMode,proto3" json:"cpu_mode,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1658,6 +1664,13 @@ func (x *VMSpec) GetCloudInit() *CloudInitConfig {
 func (x *VMSpec) GetGuestOs() string {
 	if x != nil {
 		return x.GuestOs
+	}
+	return ""
+}
+
+func (x *VMSpec) GetCpuMode() string {
+	if x != nil {
+		return x.CpuMode
 	}
 	return ""
 }
@@ -2696,7 +2709,8 @@ type CreateSnapshotRequest struct {
 	VmId          string                 `protobuf:"bytes,1,opt,name=vm_id,json=vmId,proto3" json:"vm_id,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	Quiesce       bool                   `protobuf:"varint,4,opt,name=quiesce,proto3" json:"quiesce,omitempty"` // Request guest agent to freeze filesystems
+	Quiesce       bool                   `protobuf:"varint,4,opt,name=quiesce,proto3" json:"quiesce,omitempty"`                   // Request guest agent to freeze filesystems
+	DiskOnly      bool                   `protobuf:"varint,5,opt,name=disk_only,json=diskOnly,proto3" json:"disk_only,omitempty"` // If true, only snapshot disks (no memory state) - required for VMs with invtsc/host-passthrough CPU
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2755,6 +2769,13 @@ func (x *CreateSnapshotRequest) GetDescription() string {
 func (x *CreateSnapshotRequest) GetQuiesce() bool {
 	if x != nil {
 		return x.Quiesce
+	}
+	return false
+}
+
+func (x *CreateSnapshotRequest) GetDiskOnly() bool {
+	if x != nil {
+		return x.DiskOnly
 	}
 	return false
 }
@@ -6214,7 +6235,7 @@ const file_limiquantix_node_v1_node_daemon_proto_rawDesc = "" +
 	"\x06labels\x18\x04 \x03(\v26.limiquantix.node.v1.CreateVMOnNodeRequest.LabelsEntryR\x06labels\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xf7\x04\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x92\x05\n" +
 	"\x06VMSpec\x12\x1b\n" +
 	"\tcpu_cores\x18\x01 \x01(\rR\bcpuCores\x12\x1f\n" +
 	"\vcpu_sockets\x18\x02 \x01(\rR\n" +
@@ -6233,7 +6254,8 @@ const file_limiquantix_node_v1_node_daemon_proto_rawDesc = "" +
 	"\aconsole\x18\v \x01(\v2 .limiquantix.node.v1.ConsoleSpecR\aconsole\x12C\n" +
 	"\n" +
 	"cloud_init\x18\f \x01(\v2$.limiquantix.node.v1.CloudInitConfigR\tcloudInit\x12\x19\n" +
-	"\bguest_os\x18\r \x01(\tR\aguestOs\"\x93\x01\n" +
+	"\bguest_os\x18\r \x01(\tR\aguestOs\x12\x19\n" +
+	"\bcpu_mode\x18\x0e \x01(\tR\acpuMode\"\x93\x01\n" +
 	"\x0fCloudInitConfig\x12\x1b\n" +
 	"\tuser_data\x18\x01 \x01(\tR\buserData\x12\x1b\n" +
 	"\tmeta_data\x18\x02 \x01(\tR\bmetaData\x12%\n" +
@@ -6322,12 +6344,13 @@ const file_limiquantix_node_v1_node_daemon_proto_rawDesc = "" +
 	"\x04host\x18\x02 \x01(\tR\x04host\x12\x12\n" +
 	"\x04port\x18\x03 \x01(\rR\x04port\x12\x1a\n" +
 	"\bpassword\x18\x04 \x01(\tR\bpassword\x12%\n" +
-	"\x0ewebsocket_path\x18\x05 \x01(\tR\rwebsocketPath\"|\n" +
+	"\x0ewebsocket_path\x18\x05 \x01(\tR\rwebsocketPath\"\x99\x01\n" +
 	"\x15CreateSnapshotRequest\x12\x13\n" +
 	"\x05vm_id\x18\x01 \x01(\tR\x04vmId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x18\n" +
-	"\aquiesce\x18\x04 \x01(\bR\aquiesce\"\xfd\x01\n" +
+	"\aquiesce\x18\x04 \x01(\bR\aquiesce\x12\x1b\n" +
+	"\tdisk_only\x18\x05 \x01(\bR\bdiskOnly\"\xfd\x01\n" +
 	"\x10SnapshotResponse\x12\x1f\n" +
 	"\vsnapshot_id\x18\x01 \x01(\tR\n" +
 	"snapshotId\x12\x12\n" +

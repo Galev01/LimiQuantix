@@ -319,6 +319,13 @@ message VMSpec {
   // This is similar to VMware's Guest OS selection - affects virtual hardware behavior.
   // Values: "rhel", "debian", "fedora", "windows_server", "windows_desktop", "generic_linux", etc.
   string guest_os = 13;
+  
+  // CPU mode - determines CPU emulation mode for the VM.
+  // - "host-model": Cluster-ready, supports live migration and memory snapshots (default)
+  // - "host-passthrough": Maximum performance, but no migration/memory snapshots
+  // - "max": Maximum features exposed, migratable
+  // If empty, defaults to "host-model" for cluster compatibility.
+  string cpu_mode = 14;
 }
 
 // Cloud-init configuration for automated VM provisioning
@@ -510,6 +517,7 @@ message CreateSnapshotRequest {
   string name = 2;
   string description = 3;
   bool quiesce = 4;             // Request guest agent to freeze filesystems
+  bool disk_only = 5;           // If true, only snapshot disks (no memory state) - required for VMs with invtsc/host-passthrough CPU
 }
 
 message SnapshotResponse {
