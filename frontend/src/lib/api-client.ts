@@ -181,18 +181,19 @@ async function apiCall<T>(
         headers['Authorization'] = `Bearer ${authToken}`;
       }
       
-      // Convert camelCase keys to snake_case for Go proto compatibility
-      const snakeCaseBody = body ? convertKeysToSnakeCase(body) : {};
+      // Note: Connect-RPC uses protobuf JSON encoding which expects camelCase
+      // Do NOT convert to snake_case - send camelCase as-is
+      const requestBody = body || {};
       
-      // Debug logging for VM creation
-      if (method === 'CreateVM') {
-        console.log('[API] CreateVM request body (snake_case):', JSON.stringify(snakeCaseBody, null, 2));
+      // Debug logging for network/VM creation
+      if (method === 'CreateNetwork' || method === 'CreateVM') {
+        console.log(`[API] ${method} request body:`, JSON.stringify(requestBody, null, 2));
       }
       
       const response = await fetch(url, {
         method: 'POST',
         headers,
-        body: JSON.stringify(snakeCaseBody),
+        body: JSON.stringify(requestBody),
         signal: AbortSignal.timeout(timeout),
       });
       
@@ -281,7 +282,7 @@ export interface ApiVM {
     cpu?: { 
       cores?: number;
       sockets?: number;
-      model?: string;  // CPU mode: 'host-model' (flexible) or 'host-passthrough' (performance)
+      model?: string;  // CPU mode: host-model, host-passthrough, etc.
     };
     memory?: { sizeMib?: number };
     disks?: Array<{ 
@@ -292,6 +293,7 @@ export interface ApiVM {
     nics?: Array<{
       networkId?: string;
       connected?: boolean;
+      securityGroups?: string[];  // Security group IDs for this NIC
     }>;
     // Provisioning configuration (cloud-init, ignition, sysprep)
     provisioning?: {
@@ -1058,6 +1060,17 @@ export const securityGroupApi = {
       'limiquantix.network.v1.SecurityGroupService',
       'RemoveRule',
       { securityGroupId, ruleId }
+    );
+  },
+  
+  async update(id: string, data: {
+    name?: string;
+    description?: string;
+  }): Promise<ApiSecurityGroup> {
+    return apiCall<ApiSecurityGroup>(
+      'limiquantix.network.v1.SecurityGroupService',
+      'UpdateSecurityGroup',
+      { id, ...data }
     );
   },
   

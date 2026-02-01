@@ -92,6 +92,11 @@ export function VirtualNetworks() {
   // Use only API data (no mock fallback)
   const apiNetworks = apiResponse?.networks || [];
   const allNetworks: VirtualNetwork[] = apiNetworks.map(apiToDisplayNetwork);
+  
+  // Debug logging
+  console.log('[Network List] API response:', apiResponse);
+  console.log('[Network List] Networks count:', apiNetworks.length);
+  console.log('[Network List] All networks:', allNetworks);
 
   const filteredNetworks = allNetworks.filter((net) => {
     const matchesSearch =
@@ -118,7 +123,8 @@ export function VirtualNetworks() {
   const handleCreateNetwork = async (data: Partial<VirtualNetwork>) => {
     if (!data.name) return;
     try {
-      await createNetwork.mutateAsync({
+      console.log('[Network] Creating network with data:', JSON.stringify(data, null, 2));
+      const result = await createNetwork.mutateAsync({
         name: data.name,
         projectId: 'default',
         description: data.description,
@@ -142,9 +148,13 @@ export function VirtualNetworks() {
           mtu: data.mtu || 1500,
         },
       });
+      console.log('[Network] Created network response:', JSON.stringify(result, null, 2));
       toast.success(`Network "${data.name}" created successfully`);
       setIsCreateModalOpen(false);
+      // Force refetch to ensure list updates
+      await refetch();
     } catch (err) {
+      console.error('[Network] Create network error:', err);
       toast.error(err instanceof Error ? err.message : 'Failed to create network');
       throw err; // Re-throw so wizard knows about the error
     }

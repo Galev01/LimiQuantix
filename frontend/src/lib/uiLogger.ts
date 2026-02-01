@@ -27,7 +27,8 @@ export type UIComponent =
   | 'logs'
   | 'updates'
   | 'folders'
-  | 'images';
+  | 'images'
+  | 'security-group';
 
 /**
  * UI Action types
@@ -102,6 +103,7 @@ export const COMPONENT_CONFIG: Record<UIComponent, ComponentConfig> = {
   updates: { icon: 'Download', color: '#a855f7', label: 'Updates', category: 'system' },
   folders: { icon: 'Folder', color: '#eab308', label: 'Folders', category: 'organization' },
   images: { icon: 'Disc', color: '#ec4899', label: 'Images', category: 'storage' },
+  'security-group': { icon: 'ShieldCheck', color: '#14b8a6', label: 'Security Groups', category: 'security' },
 };
 
 // ============================================================================

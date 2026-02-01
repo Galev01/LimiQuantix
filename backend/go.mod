@@ -11,6 +11,7 @@ require (
 	github.com/jackc/pgx/v5 v5.7.2
 	github.com/redis/go-redis/v9 v9.7.0
 	github.com/rs/cors v1.11.1
+	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/spf13/viper v1.21.0
 	go.etcd.io/etcd/client/v3 v3.5.17
 	go.uber.org/zap v1.27.1
@@ -37,7 +38,6 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
-	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e // indirect
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect

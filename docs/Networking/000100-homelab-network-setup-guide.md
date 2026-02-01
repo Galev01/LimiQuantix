@@ -186,20 +186,27 @@ For VMs to reach the internet, create an external network:
 
 1. Click **"+ New VM"**
 
-2. Configure:
+2. Configure basic settings:
    | Field | Value |
    |-------|-------|
    | Name | `test-vm-1` |
    | CPU | 2 |
    | Memory | 2 GB |
    | Disk | 20 GB |
-   | Network | `vm-network` (select from dropdown) |
-   | Security Group | `default` |
    | ISO | Select an OS ISO (e.g., Ubuntu Server) |
 
-3. Click **"Create"**
+3. In the **Hardware** step, configure network:
+   | Field | Value |
+   |-------|-------|
+   | Network | `vm-network` (select from dropdown) |
+   | Security Group | `default` (select from dropdown) |
 
-4. The VM will be created on QHCI01 or QHCI02 based on available resources
+   > **Note:** Each NIC can have its own security group. The security group
+   > controls firewall rules (ingress/egress) for that network interface.
+
+4. Click **"Create"**
+
+5. The VM will be created on QHCI01 or QHCI02 based on available resources
 
 ---
 

@@ -45,6 +45,7 @@ import { useStoragePools, useVolumes, type StoragePoolUI, type VolumeUI } from '
 import { useOVATemplates, type OVATemplate, formatOVASize } from '@/hooks/useOVA';
 import { useFolders, type Folder as FolderType, useCreateFolder } from '@/hooks/useFolders';
 import { useCustomizationSpecs, type CustomizationSpec } from '@/hooks/useCustomizationSpecs';
+import { useSecurityGroups, type ApiSecurityGroup } from '@/hooks/useSecurityGroups';
 
 interface VMCreationWizardProps {
   isOpen?: boolean; // For AnimatePresence compatibility, component is always rendered when open
@@ -203,6 +204,7 @@ interface NetworkInterface {
   networkId: string;
   networkName: string;
   connected: boolean;
+  securityGroupIds: string[];
 }
 
 interface DiskConfig {
@@ -283,7 +285,7 @@ const initialFormData: VMCreationData = {
   cpuSockets: 1,
   cpuMode: 'host-model',  // Default to Quantix Flexible for cluster compatibility
   memoryMib: 4096,
-  nics: [{ id: 'nic-1', networkId: 'net-prod', networkName: 'Production VLAN 100', connected: true }],
+  nics: [{ id: 'nic-1', networkId: 'net-prod', networkName: 'Production VLAN 100', connected: true, securityGroupIds: [] }],
   bootMediaType: 'cloud-image',  // Default to cloud image for quick provisioning
   isoId: '',
   cloudImageId: 'cloud-ubuntu22', // Default to Ubuntu 22.04 cloud image
@@ -323,6 +325,7 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
   // Fetch real data from APIs
   const { data: nodesData, isLoading: nodesLoading, error: nodesError, refetch: refetchNodes } = useNodes();
   const { data: networksData, isLoading: networksLoading } = useNetworks();
+  const { data: securityGroupsData, isLoading: securityGroupsLoading } = useSecurityGroups();
   const { images: cloudImages, isLoading: imagesLoading, isUsingCatalog } = useAvailableImages();
   const { isos, isLoading: isosLoading, isUsingCatalog: isUsingIsoCatalog } = useISOs();
   const { data: storagePools, isLoading: storageLoading } = useStoragePools();
@@ -401,6 +404,18 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
       type: net.spec?.type || 'overlay',
     }));
   }, [networksData]);
+
+  // Process security groups into a format usable by the wizard
+  const securityGroups = useMemo(() => {
+    if (!securityGroupsData?.securityGroups?.length) {
+      return [{ id: 'default', name: 'default', description: 'Default security group' }];
+    }
+    return securityGroupsData.securityGroups.map((sg: ApiSecurityGroup) => ({
+      id: sg.id,
+      name: sg.name,
+      description: sg.description || '',
+    }));
+  }, [securityGroupsData]);
 
   // Fetch clusters from API
   const { data: clustersData, isLoading: clustersLoading } = useClusters();
@@ -639,6 +654,7 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
           nics: formData.nics.map((nic) => ({
             networkId: nic.networkId,
             connected: nic.connected,
+            securityGroups: nic.securityGroupIds || [],
           })),
           // Include cloud-init provisioning configuration (must be under 'provisioning.cloudInit')
           provisioning: cloudInitUserData ? {
@@ -923,7 +939,8 @@ export function VMCreationWizard({ onClose, onSuccess }: VMCreationWizardProps) 
                   formData={formData}
                   updateFormData={updateFormData}
                   networks={networks}
-                  isLoading={networksLoading}
+                  securityGroups={securityGroups}
+                  isLoading={networksLoading || securityGroupsLoading}
                   selectedHost={nodes.find(n => n.id === formData.hostId)}
                 />
               )}
@@ -1718,12 +1735,14 @@ function StepHardware({
   formData,
   updateFormData,
   networks,
+  securityGroups,
   isLoading,
   selectedHost,
 }: {
   formData: VMCreationData;
   updateFormData: (updates: Partial<VMCreationData>) => void;
   networks: ProcessedNetwork[];
+  securityGroups: Array<{ id: string; name: string; description: string }>;
   isLoading: boolean;
   selectedHost?: ProcessedNode;
 }) {
@@ -1741,11 +1760,13 @@ function StepHardware({
   const memoryExceedsLimit = selectedHost && formData.memoryMib > availableMemoryMib;
   const addNIC = () => {
     const defaultNetwork = networks[0] || { id: 'default', name: 'Default Network' };
+    const defaultSecurityGroup = securityGroups.find(sg => sg.name === 'default') || securityGroups[0];
     const newNic: NetworkInterface = {
       id: `nic-${Date.now()}`,
       networkId: defaultNetwork.id,
       networkName: defaultNetwork.name,
       connected: true,
+      securityGroupIds: defaultSecurityGroup ? [defaultSecurityGroup.id] : [],
     };
     updateFormData({ nics: [...formData.nics, newNic] });
   };
@@ -2008,48 +2029,84 @@ function StepHardware({
           {formData.nics.map((nic, index) => (
             <div
               key={nic.id}
-              className="flex items-center gap-4 p-3 rounded-lg bg-bg-surface border border-border"
+              className="p-4 rounded-lg bg-bg-surface border border-border space-y-3"
             >
-              <span className="text-sm font-medium text-text-muted w-16">NIC {index + 1}</span>
-              <select
-                value={nic.networkId}
-                onChange={(e) => {
-                  const network = networks.find((n) => n.id === e.target.value);
-                  updateNIC(nic.id, {
-                    networkId: e.target.value,
-                    networkName: network?.name || '',
-                  });
-                }}
-                className="form-select flex-1"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <option>Loading networks...</option>
-                ) : (
-                  networks.map((net) => (
-                    <option key={net.id} value={net.id}>
-                      {net.name} ({net.type})
-                    </option>
-                  ))
-                )}
-              </select>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={nic.connected}
-                  onChange={(e) => updateNIC(nic.id, { connected: e.target.checked })}
-                  className="form-checkbox"
-                />
-                <span className="text-sm text-text-secondary">Connected</span>
-              </label>
-              {formData.nics.length > 1 && (
-                <button
-                  onClick={() => removeNIC(nic.id)}
-                  className="p-1.5 rounded-md text-text-muted hover:text-error hover:bg-error/10 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-text-primary">NIC {index + 1}</span>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={nic.connected}
+                      onChange={(e) => updateNIC(nic.id, { connected: e.target.checked })}
+                      className="form-checkbox"
+                    />
+                    <span className="text-sm text-text-secondary">Connected</span>
+                  </label>
+                  {formData.nics.length > 1 && (
+                    <button
+                      onClick={() => removeNIC(nic.id)}
+                      className="p-1.5 rounded-md text-text-muted hover:text-error hover:bg-error/10 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                {/* Network Selection */}
+                <div>
+                  <label className="block text-xs font-medium text-text-muted mb-1">Network</label>
+                  <select
+                    value={nic.networkId}
+                    onChange={(e) => {
+                      const network = networks.find((n) => n.id === e.target.value);
+                      updateNIC(nic.id, {
+                        networkId: e.target.value,
+                        networkName: network?.name || '',
+                      });
+                    }}
+                    className="form-select w-full"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <option>Loading networks...</option>
+                    ) : (
+                      networks.map((net) => (
+                        <option key={net.id} value={net.id}>
+                          {net.name} ({net.type})
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+                
+                {/* Security Group Selection */}
+                <div>
+                  <label className="block text-xs font-medium text-text-muted mb-1">
+                    <ShieldCheck className="w-3 h-3 inline mr-1" />
+                    Security Group
+                  </label>
+                  <select
+                    value={nic.securityGroupIds?.[0] || ''}
+                    onChange={(e) => {
+                      updateNIC(nic.id, {
+                        securityGroupIds: e.target.value ? [e.target.value] : [],
+                      });
+                    }}
+                    className="form-select w-full"
+                    disabled={isLoading}
+                  >
+                    <option value="">No security group</option>
+                    {securityGroups.map((sg) => (
+                      <option key={sg.id} value={sg.id}>
+                        {sg.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
           ))}
         </div>
@@ -3550,10 +3607,13 @@ function StepReview({
             value={formData.cpuMode === 'host-model' ? 'Quantix Flexible (cluster-ready)' : 'Quantix Performance (single-host)'}
           />
           <ReviewRow label="Memory" value={`${formData.memoryMib / 1024} GB`} />
-          <ReviewRow
-            label="Network"
-            value={formData.nics.map((n) => n.networkName).join(', ')}
-          />
+          {formData.nics.map((nic, index) => (
+            <ReviewRow
+              key={nic.id}
+              label={`NIC ${index + 1}`}
+              value={`${nic.networkName}${nic.securityGroupIds?.length ? ` (SG: ${nic.securityGroupIds.join(', ')})` : ''}`}
+            />
+          ))}
         </ReviewSection>
 
         {/* Storage */}

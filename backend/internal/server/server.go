@@ -56,9 +56,11 @@ type Server struct {
 	// Image repository (PostgreSQL or memory fallback)
 	imageRepo storageservice.ImageRepository
 
+	// Network repositories (PostgreSQL with memory fallback)
+	networkRepo       networkservice.NetworkRepository
+	securityGroupRepo networkservice.SecurityGroupRepository
+	
 	// Memory-only repositories (no PostgreSQL equivalent yet)
-	networkRepo           *memory.NetworkRepository
-	securityGroupRepo     *memory.SecurityGroupRepository
 	loadBalancerRepo      *memory.LoadBalancerRepository
 	vpnRepo               *memory.VpnRepository
 	bgpRepo               *memory.BGPRepository
@@ -238,9 +240,18 @@ func (s *Server) initRepositories() {
 		s.logger.Warn("Using in-memory image repository (data will be lost on restart)")
 	}
 
+	// Network repositories - use PostgreSQL if available, otherwise in-memory
+	if s.db != nil {
+		s.networkRepo = postgres.NewNetworkRepository(s.db, s.logger)
+		s.securityGroupRepo = postgres.NewSecurityGroupRepository(s.db, s.logger)
+		s.logger.Info("Using PostgreSQL network and security group repositories")
+	} else {
+		s.networkRepo = memory.NewNetworkRepository()
+		s.securityGroupRepo = memory.NewSecurityGroupRepository()
+		s.logger.Warn("Using in-memory network repository (data will be lost on restart)")
+	}
+	
 	// These remain in-memory for now (PostgreSQL implementations can be added later)
-	s.networkRepo = memory.NewNetworkRepository()
-	s.securityGroupRepo = memory.NewSecurityGroupRepository()
 	s.loadBalancerRepo = memory.NewLoadBalancerRepository()
 	s.vpnRepo = memory.NewVpnRepository()
 	s.bgpRepo = memory.NewBGPRepository()

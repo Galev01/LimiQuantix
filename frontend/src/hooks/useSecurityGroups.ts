@@ -94,6 +94,23 @@ export function useRemoveSecurityGroupRule() {
   });
 }
 
+export function useUpdateSecurityGroup() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string }) =>
+      securityGroupApi.update(id, data),
+    onSuccess: (sg) => {
+      showSuccess(`Security group "${sg.name}" updated successfully`);
+      queryClient.setQueryData(securityGroupKeys.detail(sg.id), sg);
+      queryClient.invalidateQueries({ queryKey: securityGroupKeys.lists() });
+    },
+    onError: (error) => {
+      showError(error, 'Failed to update security group');
+    },
+  });
+}
+
 export function useDeleteSecurityGroup() {
   const queryClient = useQueryClient();
 

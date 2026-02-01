@@ -195,10 +195,16 @@ func convertNetworkSpecFromProto(spec *networkv1.VirtualNetworkSpec) *domain.Vir
 
 // convertNetworkFilterFromProto converts list request to NetworkFilter.
 func convertNetworkFilterFromProto(req *networkv1.ListNetworksRequest) NetworkFilter {
+	// Note: The proto enum has no UNSPECIFIED value (0 = OVERLAY).
+	// We only apply type filter if explicitly requested via a query parameter.
+	// Since protobuf3 can't distinguish "not set" from "set to 0", we'll 
+	// skip type filtering entirely here. The frontend should filter client-side
+	// or we need to add an explicit filter flag to the proto.
+	// For now, return all networks regardless of type.
 	return NetworkFilter{
-		ProjectID:   req.ProjectId,
-		NetworkType: domain.NetworkType(req.Type.String()),
-		Labels:      req.Labels,
+		ProjectID: req.ProjectId,
+		Labels:    req.Labels,
+		// NetworkType intentionally not set - return all types
 	}
 }
 
